@@ -1,0 +1,134 @@
+{
+  "timestamp": "2026-03-09T00:17:26.415779",
+  "total_tests": 21,
+  "passed_tests": 16,
+  "success_rate": 76.19047619047619,
+  "results": [
+    {
+      "test": "API Root Endpoint",
+      "success": true,
+      "details": "Status: 200, Message: YEPEZ CONTROLS API v1.0",
+      "error": ""
+    },
+    {
+      "test": "Seed Admin Account",
+      "success": true,
+      "details": "Admin email: admin@yepezcontrols.com",
+      "error": ""
+    },
+    {
+      "test": "Admin Login",
+      "success": true,
+      "details": "Token received, User: Alfredo Yepez",
+      "error": ""
+    },
+    {
+      "test": "Dashboard Statistics",
+      "success": true,
+      "details": "Total services: 1, Revenue: $1500.0",
+      "error": ""
+    },
+    {
+      "test": "Create Mechanic",
+      "success": false,
+      "details": "",
+      "error": "Status: 400, Error: {\"detail\":\"El email ya est\u00e1 registrado\"}"
+    },
+    {
+      "test": "Mechanic Login",
+      "success": true,
+      "details": "Mechanic logged in: Carlos Hern\u00e1ndez",
+      "error": ""
+    },
+    {
+      "test": "Get Mechanics List",
+      "success": true,
+      "details": "Found 2 mechanics",
+      "error": ""
+    },
+    {
+      "test": "Create Appointment",
+      "success": true,
+      "details": "Appointment created for ABC123",
+      "error": ""
+    },
+    {
+      "test": "Get Appointments",
+      "success": true,
+      "details": "Found 2 appointments",
+      "error": ""
+    },
+    {
+      "test": "Create Service",
+      "success": true,
+      "details": "Service created for ABC123",
+      "error": ""
+    },
+    {
+      "test": "Get Services",
+      "success": true,
+      "details": "Found 2 services",
+      "error": ""
+    },
+    {
+      "test": "Create Mixed Payment",
+      "success": true,
+      "details": "Payment created: $1500.0",
+      "error": ""
+    },
+    {
+      "test": "Assign Mechanic",
+      "success": false,
+      "details": "",
+      "error": "Missing service or mechanic ID"
+    },
+    {
+      "test": "Update Service Progress",
+      "success": false,
+      "details": "",
+      "error": "Status: 403, Error: {\"detail\":\"No tienes acceso a este servicio\"}"
+    },
+    {
+      "test": "Create Inventory Item",
+      "success": false,
+      "details": "",
+      "error": "Status: 400, Error: {\"detail\":\"SKU ya existe\"}"
+    },
+    {
+      "test": "Get Inventory",
+      "success": true,
+      "details": "Found 1 inventory items",
+      "error": ""
+    },
+    {
+      "test": "Low Stock Alert",
+      "success": true,
+      "details": "Found 0 low stock items",
+      "error": ""
+    },
+    {
+      "test": "Client Vehicle Tracking",
+      "success": true,
+      "details": "Vehicle found: ABC123 - Progress: 75%",
+      "error": ""
+    },
+    {
+      "test": "Client Registration",
+      "success": false,
+      "details": "",
+      "error": "Status: 400, Error: {\"detail\":\"El email ya est\u00e1 registrado\"}"
+    },
+    {
+      "test": "Weekly Cut Saturday Check",
+      "success": true,
+      "details": "Is Saturday: False, Day: Monday",
+      "error": ""
+    },
+    {
+      "test": "Weekly Cut with PIN",
+      "success": true,
+      "details": "Cut created: $0.0 revenue",
+      "error": ""
+    }
+  ]
+}
