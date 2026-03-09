@@ -38,6 +38,15 @@ CALLMEBOT_API_URL = "https://api.callmebot.com/whatsapp.php"
 # Create the main app
 app = FastAPI(title="YEPEZ CONTROLS API")
 
+# ==================== CORS MIDDLEWARE (must be first) ====================
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 security = HTTPBearer()
@@ -555,7 +564,6 @@ async def update_service(service_id: str, update: ServiceUpdate, user: dict = De
                         diagnosis=service.get("diagnosis", ""),
                         shift=update_data.get("shift", "matutino")
                     )
-                    # Send async notification
                     await send_whatsapp_notification(
                         phone=mechanic["phone"],
                         apikey=mechanic["whatsapp_apikey"],
@@ -580,7 +588,6 @@ async def update_service_progress(service_id: str, progress: int, user: dict = D
     if not service:
         raise HTTPException(status_code=404, detail="Servicio no encontrado")
     
-    # Mechanic can only update their own services
     if user["role"] == "mecanico" and service["mechanic_id"] != user["id"]:
         raise HTTPException(status_code=403, detail="No tienes acceso a este servicio")
     
@@ -594,25 +601,17 @@ async def update_service_progress(service_id: str, progress: int, user: dict = D
     
     return {"message": "Progreso actualizado", "progress": progress, "status": status}
 
-# ==================== PAYMENTS (Mixed Payment Logic) ====================
+# ==================== PAYMENTS ====================
 
 @api_router.post("/payments", response_model=PaymentResponse)
 async def create_payment(payment: PaymentCreate, user: dict = Depends(require_admin)):
-    """
-    Cobro Mixto: Efectivo_a_recibir = Total_Servicio - Monto_Transferencia
-    Calcular cambio si efectivo entregado > restante
-    """
     service = await db.services.find_one({"id": payment.service_id}, {"_id": 0})
     if not service:
         raise HTTPException(status_code=404, detail="Servicio no encontrado")
     
-    # Calculate cash needed
     cash_needed = payment.total_amount - payment.transfer_amount
-    
-    # Calculate change
     change_amount = max(0, payment.cash_received - cash_needed) if payment.cash_received > 0 else 0
     
-    # Check if payment is complete
     transfer_ok = payment.transfer_amount == 0 or (payment.transfer_reference and len(payment.transfer_reference) > 0)
     cash_ok = cash_needed <= 0 or payment.cash_received >= cash_needed
     payment_complete = transfer_ok and cash_ok
@@ -634,7 +633,6 @@ async def create_payment(payment: PaymentCreate, user: dict = Depends(require_ad
     }
     await db.payments.insert_one(payment_doc)
     
-    # Update service payment status
     if payment_complete:
         await db.services.update_one(
             {"id": payment.service_id},
@@ -645,7 +643,7 @@ async def create_payment(payment: PaymentCreate, user: dict = Depends(require_ad
 
 @api_router.get("/payments", response_model=List[PaymentResponse])
 async def get_payments(user: dict = Depends(require_admin)):
-    payments = await db.payments.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    payments = await db.payments.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return [PaymentResponse(**p) for p in payments]
 
 @api_router.put("/payments/{payment_id}/confirm-transfer")
@@ -659,7 +657,6 @@ async def confirm_transfer(payment_id: str, user: dict = Depends(require_admin))
         {"$set": {"transfer_confirmed": True, "payment_complete": True}}
     )
     
-    # Update service payment status
     await db.services.update_one(
         {"id": payment["service_id"]},
         {"$set": {"payment_status": "pagado", "updated_at": datetime.now(timezone.utc).isoformat()}}
@@ -709,7 +706,6 @@ async def update_inventory_item(item_id: str, update: InventoryItemUpdate, user:
     
     update_data = {k: v for k, v in update.model_dump().items() if v is not None}
     
-    # Update low_stock flag
     if "quantity" in update_data or "min_stock" in update_data:
         new_qty = update_data.get("quantity", item["quantity"])
         new_min = update_data.get("min_stock", item["min_stock"])
@@ -722,7 +718,6 @@ async def update_inventory_item(item_id: str, update: InventoryItemUpdate, user:
 
 @api_router.put("/inventory/{item_id}/adjust")
 async def adjust_inventory(item_id: str, adjustment: int, user: dict = Depends(require_admin_or_mechanic)):
-    """Adjust inventory quantity (positive or negative)"""
     item = await db.inventory.find_one({"id": item_id}, {"_id": 0})
     if not item:
         raise HTTPException(status_code=404, detail="Artículo no encontrado")
@@ -744,26 +739,20 @@ async def delete_inventory_item(item_id: str, user: dict = Depends(require_admin
         raise HTTPException(status_code=404, detail="Artículo no encontrado")
     return {"message": "Artículo eliminado"}
 
-# ==================== WEEKLY CUT (Saturday only, PIN protected) ====================
+# ==================== WEEKLY CUT ====================
 
 @api_router.post("/weekly-cut", response_model=WeeklyCutResponse)
 async def create_weekly_cut(cut_data: WeeklyCutCreate, user: dict = Depends(require_admin)):
-    """Weekly cut - Only available on Saturdays, requires PIN"""
-    # Verify PIN
     if cut_data.pin != WEEKLY_CUT_PIN:
         raise HTTPException(status_code=403, detail="PIN incorrecto")
     
-    # Check if it's Saturday (5 = Saturday in weekday())
     today = datetime.now(timezone.utc)
-    # For testing purposes, allow any day but log warning
     if today.weekday() != 5:
         logging.warning(f"Weekly cut performed on non-Saturday: {today.strftime('%A')}")
     
-    # Calculate week range
     start_of_week = today - timedelta(days=today.weekday())
     end_of_week = start_of_week + timedelta(days=6)
     
-    # Get all completed payments from this week
     payments = await db.payments.find({
         "payment_complete": True,
         "created_at": {
@@ -800,18 +789,15 @@ async def get_weekly_cuts(user: dict = Depends(require_admin)):
 
 @api_router.get("/weekly-cut/check-saturday")
 async def check_saturday():
-    """Check if today is Saturday"""
     today = datetime.now(timezone.utc)
     return {"is_saturday": today.weekday() == 5, "day": today.strftime("%A")}
 
-# ==================== CLIENT PORTAL (Public tracking) ====================
+# ==================== CLIENT PORTAL ====================
 
 @api_router.get("/track/{plate}")
 async def track_by_plate(plate: str):
-    """Public endpoint for clients to track their vehicle"""
     plate = plate.upper().strip()
     
-    # Find latest service for this plate
     service = await db.services.find_one(
         {"vehicle_plate": plate},
         {"_id": 0, "mechanic_id": 0}
@@ -820,7 +806,6 @@ async def track_by_plate(plate: str):
     if not service:
         raise HTTPException(status_code=404, detail="No se encontró servicio para esta placa")
     
-    # Get status timeline
     status_map = {
         "recibido": {"step": 1, "label": "Recibido"},
         "diagnostico": {"step": 2, "label": "Diagnóstico"},
@@ -847,35 +832,26 @@ async def track_by_plate(plate: str):
 
 @api_router.get("/dashboard/stats")
 async def get_dashboard_stats(user: dict = Depends(require_admin)):
-    # Get today's date
     today = datetime.now(timezone.utc).date()
     today_start = datetime.combine(today, datetime.min.time()).isoformat()
     
-    # Count services by status
     total_services = await db.services.count_documents({})
     active_services = await db.services.count_documents({"status": {"$ne": "listo"}})
     completed_services = await db.services.count_documents({"status": "listo"})
     
-    # Revenue stats
     payments = await db.payments.find({"payment_complete": True}, {"_id": 0}).to_list(1000)
     total_revenue = sum(p["total_amount"] for p in payments)
     cash_revenue = sum(p["cash_amount"] for p in payments)
     transfer_revenue = sum(p["transfer_amount"] for p in payments)
     
-    # Today's revenue
     today_payments = await db.payments.find({
         "payment_complete": True,
         "created_at": {"$gte": today_start}
     }, {"_id": 0}).to_list(100)
     today_revenue = sum(p["total_amount"] for p in today_payments)
     
-    # Low stock count
     low_stock_count = await db.inventory.count_documents({"low_stock": True})
-    
-    # Active mechanics
     mechanics = await db.users.find({"role": "mecanico", "active": True}, {"_id": 0}).to_list(20)
-    
-    # Pending appointments
     pending_appointments = await db.appointments.count_documents({"status": "pendiente"})
     
     return {
@@ -909,11 +885,7 @@ async def get_services_report(
             query["created_at"] = {"$lte": end_date}
     
     services = await db.services.find(query, {"_id": 0}).to_list(1000)
-    
-    return {
-        "total_count": len(services),
-        "services": services
-    }
+    return {"total_count": len(services), "services": services}
 
 @api_router.get("/reports/payments")
 async def get_payments_report(
@@ -948,7 +920,6 @@ async def get_payments_report(
 
 @api_router.post("/seed-admin")
 async def seed_admin():
-    """Create default admin account if not exists"""
     existing = await db.users.find_one({"email": "admin@yepezcontrols.com"})
     if existing:
         return {"message": "Admin ya existe", "email": "admin@yepezcontrols.com"}
@@ -971,19 +942,16 @@ async def seed_admin():
         "password": "Admin2026!"
     }
 
-# ==================== RESET DATA (Admin only) ====================
+# ==================== RESET DATA ====================
 
 @api_router.delete("/reset-all-data")
 async def reset_all_data(user: dict = Depends(require_admin)):
-    """Delete all test data except admin account"""
     try:
-        # Delete all collections except admin user
         await db.appointments.delete_many({})
         await db.services.delete_many({})
         await db.payments.delete_many({})
         await db.inventory.delete_many({})
         await db.weekly_cuts.delete_many({})
-        # Delete only mechanic users, keep admin
         await db.users.delete_many({"role": {"$ne": "admin"}})
         
         return {
@@ -993,16 +961,13 @@ async def reset_all_data(user: dict = Depends(require_admin)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al eliminar datos: {str(e)}")
 
-# ==================== DASHBOARD CHARTS DATA ====================
+# ==================== DASHBOARD CHARTS ====================
 
 @api_router.get("/dashboard/charts")
 async def get_dashboard_charts(user: dict = Depends(require_admin)):
-    """Get data for dashboard charts"""
-    # Get last 7 days of data
     today = datetime.now(timezone.utc)
     week_ago = today - timedelta(days=7)
     
-    # Daily revenue for the week
     daily_revenue = []
     for i in range(7):
         day = week_ago + timedelta(days=i)
@@ -1029,7 +994,6 @@ async def get_dashboard_charts(user: dict = Depends(require_admin)):
             "transferencia": transfer
         })
     
-    # Services by status
     status_counts = {
         "recibido": await db.services.count_documents({"status": "recibido"}),
         "diagnostico": await db.services.count_documents({"status": "diagnostico"}),
@@ -1037,7 +1001,6 @@ async def get_dashboard_charts(user: dict = Depends(require_admin)):
         "listo": await db.services.count_documents({"status": "listo"})
     }
     
-    # Inventory by category
     inventory_items = await db.inventory.find({}, {"_id": 0}).to_list(500)
     category_data = {}
     for item in inventory_items:
@@ -1052,7 +1015,6 @@ async def get_dashboard_charts(user: dict = Depends(require_admin)):
         for k, v in category_data.items()
     ]
     
-    # Appointments this week
     appointments_count = await db.appointments.count_documents({})
     pending_appointments = await db.appointments.count_documents({"status": "pendiente"})
     
@@ -1075,7 +1037,6 @@ async def get_dashboard_charts(user: dict = Depends(require_admin)):
 
 @api_router.get("/reports/inventory/export")
 async def export_inventory_report(user: dict = Depends(require_admin)):
-    """Export inventory data for report generation"""
     items = await db.inventory.find({}, {"_id": 0}).to_list(500)
     
     total_items = len(items)
@@ -1102,7 +1063,6 @@ async def export_sales_report(
     end_date: Optional[str] = None,
     user: dict = Depends(require_admin)
 ):
-    """Export sales/payments data for report generation"""
     query = {"payment_complete": True}
     if start_date:
         query["created_at"] = {"$gte": start_date}
@@ -1114,7 +1074,6 @@ async def export_sales_report(
     
     payments = await db.payments.find(query, {"_id": 0}).to_list(1000)
     
-    # Enrich with service info
     enriched_payments = []
     for p in payments:
         service = await db.services.find_one({"id": p["service_id"]}, {"_id": 0})
@@ -1147,7 +1106,6 @@ async def export_sales_report(
 
 @api_router.get("/reports/weekly-cuts/export")
 async def export_weekly_cuts_report(user: dict = Depends(require_admin)):
-    """Export weekly cuts data for report generation"""
     cuts = await db.weekly_cuts.find({}, {"_id": 0}).sort("created_at", -1).to_list(52)
     
     total_revenue = sum(c["total_revenue"] for c in cuts)
@@ -1168,22 +1126,15 @@ async def export_weekly_cuts_report(user: dict = Depends(require_admin)):
         "cuts": cuts
     }
 
-# ==================== ROOT ====================
+# ==================== INCLUDE ROUTER & ROOT ====================
 
-@api_router.get("/")
-async def root():
-    return {"message": "YEPEZ CONTROLS API v1.0", "status": "running"}
-
-# Include the router in the main app
+# Include all /api routes
 app.include_router(api_router)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Ruta raíz del app principal (corrige el "Not Found" en /)
+@app.get("/")
+async def root_main():
+    return {"message": "YEPEZ CONTROLS API v1.0", "status": "running"}
 
 # Configure logging
 logging.basicConfig(
