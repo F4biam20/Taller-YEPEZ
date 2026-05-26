@@ -1,0 +1,147 @@
+{
+  "project_name": "YEPEZ CONTROLS",
+  "app_type": "dashboard",
+  "design_philosophy": {
+    "theme": "dark",
+    "archetype": "The Performance Pro",
+    "vibe": "Industrial, High-Performance, Precision, Trustworthy",
+    "core_principles": [
+      "Fusion over Imitation: Mix Industrial Aesthetics with SaaS Precision",
+      "Emotion First: Confidence and Speed",
+      "Content is King: Data must be legible at a glance (Mechanic mode)",
+      "Contrast: High contrast for dark environments (workshop)"
+    ]
+  },
+  "typography": {
+    "font_family": {
+      "headings": "Barlow Condensed, sans-serif",
+      "body": "Inter, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "imports": [
+      "@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');"
+    ],
+    "scale": {
+      "h1": "text-5xl font-bold tracking-tight uppercase",
+      "h2": "text-3xl font-semibold tracking-tight uppercase",
+      "h3": "text-2xl font-medium tracking-normal",
+      "body": "text-base font-normal leading-relaxed",
+      "label": "text-xs font-bold tracking-widest uppercase text-muted-foreground"
+    }
+  },
+  "colors": {
+    "primary": {
+      "DEFAULT": "#E31837",
+      "foreground": "#FFFFFF",
+      "hover": "#C4122C",
+      "active": "#A30F25"
+    },
+    "background": {
+      "DEFAULT": "#09090b",
+      "paper": "#18181b",
+      "subtle": "#27272a"
+    },
+    "text": {
+      "primary": "#FAFAFA",
+      "secondary": "#A1A1AA",
+      "muted": "#52525B",
+      "accent": "#E31837"
+    },
+    "border": {
+      "DEFAULT": "#27272a",
+      "active": "#E31837"
+    },
+    "status": {
+      "success": "#22c55e",
+      "warning": "#eab308",
+      "error": "#ef4444",
+      "info": "#3b82f6"
+    }
+  },
+  "visual_enhancers": {
+    "radius": "rounded-sm",
+    "shadows": {
+      "card": "0 1px 3px 0 rgb(0 0 0 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.5)",
+      "glow": "0 0 20px -5px rgba(227, 24, 55, 0.3)"
+    },
+    "borders": "border border-zinc-800",
+    "gradients": {
+      "subtle_red": "linear-gradient(180deg, rgba(227,24,55,0.05) 0%, rgba(9,9,11,0) 100%)",
+      "metallic": "linear-gradient(145deg, #18181b 0%, #09090b 100%)"
+    },
+    "textures": "Use subtle noise overlays or carbon-fiber patterns for sidebar/headers to evoke the motorcycle theme."
+  },
+  "layout_strategy": {
+    "container": "max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8",
+    "spacing": "Generous padding (p-6, p-8) for dashboard cards to avoid clutter.",
+    "grid_system": {
+      "dashboard": "grid grid-cols-1 md:grid-cols-4 gap-6",
+      "form": "grid grid-cols-1 md:grid-cols-2 gap-8"
+    },
+    "sidebar": {
+      "width": "w-64",
+      "collapsed_width": "w-16",
+      "style": "fixed left-0 top-0 h-full bg-zinc-950 border-r border-zinc-800 z-50"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-[#E31837] text-white hover:bg-[#C4122C] rounded-sm font-bold uppercase tracking-wider px-6 py-2 transition-all shadow-[0_0_10px_rgba(227,24,55,0.2)] hover:shadow-[0_0_20px_rgba(227,24,55,0.4)]",
+      "secondary": "bg-zinc-800 text-white hover:bg-zinc-700 rounded-sm font-medium px-6 py-2 border border-zinc-700",
+      "ghost": "bg-transparent text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+    },
+    "cards": {
+      "base": "bg-zinc-900/50 border border-zinc-800 rounded-sm p-6 backdrop-blur-sm relative overflow-hidden",
+      "interactive": "hover:border-zinc-700 transition-colors cursor-pointer group",
+      "highlight": "before:absolute before:top-0 before:left-0 before:w-full before:h-[2px] before:bg-[#E31837] before:opacity-0 hover:before:opacity-100 transition-all"
+    },
+    "inputs": {
+      "base": "bg-zinc-950 border border-zinc-800 focus:border-[#E31837] focus:ring-1 focus:ring-[#E31837] rounded-sm h-10 px-3 text-sm text-white placeholder:text-zinc-600 transition-all"
+    },
+    "badges": {
+      "base": "inline-flex items-center rounded-sm px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+      "default": "border-transparent bg-[#E31837] text-white hover:bg-[#E31837]/80",
+      "outline": "text-zinc-400 border border-zinc-700"
+    }
+  },
+  "specific_views": {
+    "login": {
+      "layout": "Split screen. Left: 60% width with Red Motorcycle Image + Dark Overlay. Right: 40% width with Login Form.",
+      "elements": "Logo centered, 'Bienvenido a Yepez Controls', minimalist form."
+    },
+    "dashboard_admin": {
+      "header": "Must display date prominently: 'LUN 09 MARZO 2026' in Barlow Condensed font.",
+      "widgets": [
+        "Revenue (Mixed Cash/Transfer)",
+        "Active Services",
+        "Mechanic Status",
+        "Low Stock Alerts"
+      ]
+    },
+    "mechanic_view": {
+      "style": "High contrast, large touch targets (for gloved hands).",
+      "elements": "Task Queue, Progress Slider (0-100%), Parts Request Button."
+    },
+    "client_portal": {
+      "style": "Clean, transparent, reassuring.",
+      "elements": "Search by Plate (Big Input), Timeline Status (Received -> Diagnosis -> Repair -> Ready)."
+    }
+  },
+  "assets": {
+    "icons": "Lucide React (Bike, Wrench, Settings, Users, BarChart3, Search, LogOut)",
+    "images": {
+      "login_hero": "https://images.unsplash.com/photo-1705217652829-b80b35bc9e79?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "mechanic_bg": "https://images.unsplash.com/photo-1762604462286-472334549804?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "texture_overlay": "https://images.unsplash.com/photo-1758440519640-7234ba375d2e?crop=entropy&cs=srgb&fm=jpg&q=85"
+    }
+  },
+  "universal_guidelines": [
+    "Use 'Barlow Condensed' for all headings to give that mechanical/industrial look.",
+    "Primary Red (#E31837) should be used sparingly for CTAs and active states, not for large backgrounds.",
+    "All dates must follow the format: 'DAY DD MONTH YYYY' (e.g., LUN 09 MARZO 2026).",
+    "Use 'sonner' for all toast notifications.",
+    "Ensure all interactive elements have 'data-testid'.",
+    "Do not use gradients for text.",
+    "Forms should use 'react-hook-form' with 'zod' validation."
+  ]
+}
