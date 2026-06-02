@@ -15,6 +15,8 @@ import bcrypt
 from io import BytesIO
 import json
 import httpx
+import random
+import string
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -34,6 +36,9 @@ WEEKLY_CUT_PIN = "UJAT2026"
 
 # WhatsApp CallMeBot API (free)
 CALLMEBOT_API_URL = "https://api.callmebot.com/whatsapp.php"
+
+# Email Config
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
 
 # Create the main app
 app = FastAPI(title="YEPEZ CONTROLS API")
@@ -56,7 +61,7 @@ security = HTTPBearer()
 class UserBase(BaseModel):
     email: EmailStr
     name: str
-    role: str = "cliente"  # admin, mecanico, cliente
+    role: str = "cliente"
     phone: Optional[str] = None
 
 class UserCreate(BaseModel):
@@ -77,13 +82,17 @@ class UserResponse(BaseModel):
     phone: Optional[str] = None
     created_at: str
 
+class VerifyEmailRequest(BaseModel):
+    email: EmailStr
+    code: str
+
 class MecanicoCreate(BaseModel):
     email: EmailStr
     password: str
     name: str
     phone: Optional[str] = None
     specialty: Optional[str] = None
-    whatsapp_apikey: Optional[str] = None  # CallMeBot API key
+    whatsapp_apikey: Optional[str] = None
 
 class MecanicoResponse(BaseModel):
     id: str
@@ -95,30 +104,106 @@ class MecanicoResponse(BaseModel):
     active: bool = True
     whatsapp_apikey: Optional[str] = None
 
-# WhatsApp Notification Model
 class WhatsAppNotification(BaseModel):
     phone: str
     message: str
 
+# ==================== EMAIL HELPER ====================
+
+def generate_verification_code() -> str:
+    return ''.join(random.choices(string.digits, k=6))
+
+def send_verification_email(to_email: str, name: str, code: str) -> bool:
+    try:
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <body style="margin:0;padding:0;background-color:#09090b;font-family:Arial,sans-serif;">
+          <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#09090b;padding:40px 20px;">
+            <tr>
+              <td align="center">
+                <table width="480" cellpadding="0" cellspacing="0" style="background-color:#18181b;border:1px solid #27272a;border-radius:8px;overflow:hidden;">
+                  <tr>
+                    <td style="background-color:#E31837;padding:24px;text-align:center;">
+                      <h1 style="color:#ffffff;margin:0;font-size:22px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;">
+                        YEPEZ CONTROLS
+                      </h1>
+                      <p style="color:rgba(255,255,255,0.8);margin:4px 0 0;font-size:12px;text-transform:uppercase;letter-spacing:1px;">
+                        Centro de Servicio Autorizado VENTO
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:36px 32px;">
+                      <p style="color:#a1a1aa;font-size:15px;margin:0 0 8px;">Hola, <strong style="color:#ffffff;">{name}</strong></p>
+                      <p style="color:#a1a1aa;font-size:15px;margin:0 0 32px;">
+                        Tu código de verificación para activar tu cuenta en YEPEZ CONTROLS es:
+                      </p>
+                      <div style="background-color:#09090b;border:2px solid #E31837;border-radius:8px;padding:24px;text-align:center;margin:0 0 32px;">
+                        <span style="color:#E31837;font-size:48px;font-weight:bold;letter-spacing:12px;">{code}</span>
+                      </div>
+                      <p style="color:#71717a;font-size:13px;margin:0 0 8px;">
+                        Este código expira en <strong style="color:#a1a1aa;">15 minutos</strong>.
+                      </p>
+                      <p style="color:#71717a;font-size:13px;margin:0;">
+                        Si no solicitaste esta cuenta, puedes ignorar este correo.
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="border-top:1px solid #27272a;padding:20px 32px;text-align:center;">
+                      <p style="color:#52525b;font-size:12px;margin:0;">© 2026 YEPEZ CONTROLS — Villahermosa, Tabasco</p>
+                      <p style="color:#3f3f46;font-size:11px;margin:4px 0 0;">Proyecto de Titulación UJAT — Ingeniería en Sistemas</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+        """
+
+        import urllib.request
+        import json as json_lib
+
+        payload = json_lib.dumps({
+            "from": "YEPEZ CONTROLS <onboarding@resend.dev>",
+            "to": [to_email],
+            "subject": "Código de verificación — YEPEZ CONTROLS",
+            "html": html
+        }).encode("utf-8")
+
+        req = urllib.request.Request(
+            "https://api.resend.com/emails",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {RESEND_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            method="POST"
+        )
+
+        with urllib.request.urlopen(req, timeout=15) as response:
+            result = json_lib.loads(response.read())
+            logging.info(f"Resend email sent to {to_email}: {result}")
+            return True
+
+    except Exception as e:
+        logging.error(f"Email error: {e}")
+        return False
+
 # ==================== WHATSAPP HELPER ====================
 async def send_whatsapp_notification(phone: str, apikey: str, message: str) -> bool:
-    """Send WhatsApp message via CallMeBot API"""
     if not phone or not apikey:
         logging.warning("WhatsApp: No phone or apikey provided")
         return False
     try:
-        # Clean phone number - remove all non-numeric characters
         clean_phone = ''.join(filter(str.isdigit, phone))
-        
-        # URL encode the message
         import urllib.parse
         encoded_message = urllib.parse.quote(message)
-        
-        # Build URL directly
         url = f"https://api.callmebot.com/whatsapp.php?phone={clean_phone}&text={encoded_message}&apikey={apikey}"
-        
         logging.info(f"WhatsApp: Sending to {clean_phone}")
-        
         async with httpx.AsyncClient() as http_client:
             response = await http_client.get(url, timeout=15.0)
             logging.info(f"WhatsApp response: {response.status_code} - {response.text[:100]}")
@@ -128,9 +213,7 @@ async def send_whatsapp_notification(phone: str, apikey: str, message: str) -> b
         return False
 
 def generate_ai_message(mechanic_name: str, vehicle_plate: str, vehicle_model: str, client_name: str, diagnosis: str, shift: str) -> str:
-    """Generate notification message for mechanic"""
     shift_text = "MATUTINO 8:00-14:00" if shift == "matutino" else "VESPERTINO 14:00-20:00"
-    
     message = f"""YEPEZ CONTROLS - Nueva Asignacion
 
 Hola {mechanic_name}!
@@ -143,10 +226,9 @@ Diagnostico: {diagnosis or 'Pendiente'}
 Turno: {shift_text}
 
 Ingresa al sistema para mas detalles."""
-    
     return message
 
-# Appointment/Service Models
+# ==================== APPOINTMENT MODELS ====================
 class AppointmentCreate(BaseModel):
     client_name: str
     client_phone: str
@@ -186,7 +268,6 @@ class AppointmentResponse(BaseModel):
     status: str
     created_at: str
 
-# Service/Production Models
 class ServiceCreate(BaseModel):
     appointment_id: str
     diagnosis: Optional[str] = None
@@ -229,7 +310,6 @@ class ServiceResponse(BaseModel):
     created_at: str
     updated_at: str
 
-# Payment Models
 class PaymentCreate(BaseModel):
     service_id: str
     total_amount: float
@@ -253,7 +333,6 @@ class PaymentResponse(BaseModel):
     notes: Optional[str] = None
     created_at: str
 
-# Inventory Models
 class InventoryItemCreate(BaseModel):
     name: str
     sku: str
@@ -283,7 +362,6 @@ class InventoryItemResponse(BaseModel):
     low_stock: bool
     created_at: str
 
-# Weekly Cut Models
 class WeeklyCutCreate(BaseModel):
     pin: str
     notes: Optional[str] = None
@@ -342,12 +420,26 @@ async def require_admin_or_mechanic(user: dict = Depends(get_current_user)):
 
 @api_router.post("/auth/register", response_model=dict)
 async def register_client(user_data: UserCreate):
-    """Registro público solo para clientes"""
+    """Registro público para clientes — envía código de verificación"""
     existing = await db.users.find_one({"email": user_data.email})
     if existing:
-        raise HTTPException(status_code=400, detail="El email ya está registrado")
-    
+        if existing.get("verified", True):
+            raise HTTPException(status_code=400, detail="El email ya está registrado")
+        else:
+            # Re-send verification code
+            code = generate_verification_code()
+            expires = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
+            await db.users.update_one(
+                {"email": user_data.email},
+                {"$set": {"verification_code": code, "code_expires": expires}}
+            )
+            send_verification_email(user_data.email, existing["name"], code)
+            return {"message": "Código reenviado", "email": user_data.email, "requires_verification": True}
+
     user_id = str(uuid.uuid4())
+    code = generate_verification_code()
+    expires = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
+
     user_doc = {
         "id": user_id,
         "email": user_data.email,
@@ -355,27 +447,92 @@ async def register_client(user_data: UserCreate):
         "name": user_data.name,
         "phone": user_data.phone,
         "role": "cliente",
+        "verified": False,
+        "verification_code": code,
+        "code_expires": expires,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.users.insert_one(user_doc)
-    
-    token = create_token(user_id, "cliente")
+
+    email_sent = send_verification_email(user_data.email, user_data.name, code)
+    if not email_sent:
+        logging.warning(f"Could not send verification email to {user_data.email}")
+
+    return {
+        "message": "Registro exitoso. Verifica tu correo.",
+        "email": user_data.email,
+        "requires_verification": True
+    }
+
+@api_router.post("/auth/verify-email", response_model=dict)
+async def verify_email(data: VerifyEmailRequest):
+    """Verifica el código enviado al correo"""
+    user = await db.users.find_one({"email": data.email}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    if user.get("verified"):
+        raise HTTPException(status_code=400, detail="La cuenta ya está verificada")
+
+    stored_code = user.get("verification_code")
+    expires_str = user.get("code_expires")
+
+    if not stored_code or not expires_str:
+        raise HTTPException(status_code=400, detail="No hay código de verificación pendiente")
+
+    expires = datetime.fromisoformat(expires_str)
+    if datetime.now(timezone.utc) > expires:
+        raise HTTPException(status_code=400, detail="El código ha expirado. Vuelve a registrarte para obtener uno nuevo.")
+
+    if data.code.strip() != stored_code:
+        raise HTTPException(status_code=400, detail="Código incorrecto")
+
+    await db.users.update_one(
+        {"email": data.email},
+        {"$set": {"verified": True}, "$unset": {"verification_code": "", "code_expires": ""}}
+    )
+
+    token = create_token(user["id"], "cliente")
     return {
         "token": token,
         "user": {
-            "id": user_id,
-            "email": user_data.email,
-            "name": user_data.name,
+            "id": user["id"],
+            "email": user["email"],
+            "name": user["name"],
             "role": "cliente"
         }
     }
+
+@api_router.post("/auth/resend-code", response_model=dict)
+async def resend_verification_code(email: EmailStr):
+    """Reenvía el código de verificación"""
+    user = await db.users.find_one({"email": email}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    if user.get("verified"):
+        raise HTTPException(status_code=400, detail="La cuenta ya está verificada")
+
+    code = generate_verification_code()
+    expires = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
+    await db.users.update_one(
+        {"email": email},
+        {"$set": {"verification_code": code, "code_expires": expires}}
+    )
+    send_verification_email(email, user["name"], code)
+    return {"message": "Código reenviado exitosamente"}
 
 @api_router.post("/auth/login", response_model=dict)
 async def login(credentials: UserLogin):
     user = await db.users.find_one({"email": credentials.email}, {"_id": 0})
     if not user or not verify_password(credentials.password, user["password"]):
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
-    
+
+    if user.get("role") == "cliente" and not user.get("verified", True):
+        raise HTTPException(
+            status_code=403,
+            detail="Cuenta no verificada. Revisa tu correo e ingresa el código de verificación."
+        )
+
     token = create_token(user["id"], user["role"])
     return {
         "token": token,
@@ -398,15 +555,13 @@ async def get_me(user: dict = Depends(get_current_user)):
         created_at=user["created_at"]
     )
 
-# ==================== MECHANICS MANAGEMENT (Admin only) ====================
+# ==================== MECHANICS MANAGEMENT ====================
 
 @api_router.post("/mechanics", response_model=MecanicoResponse)
 async def create_mechanic(mechanic: MecanicoCreate, admin: dict = Depends(require_admin)):
-    """Admin crea cuentas de mecánicos"""
     existing = await db.users.find_one({"email": mechanic.email})
     if existing:
         raise HTTPException(status_code=400, detail="El email ya está registrado")
-    
     user_id = str(uuid.uuid4())
     user_doc = {
         "id": user_id,
@@ -418,33 +573,23 @@ async def create_mechanic(mechanic: MecanicoCreate, admin: dict = Depends(requir
         "whatsapp_apikey": mechanic.whatsapp_apikey,
         "role": "mecanico",
         "active": True,
+        "verified": True,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.users.insert_one(user_doc)
-    
     return MecanicoResponse(
-        id=user_id,
-        email=mechanic.email,
-        name=mechanic.name,
-        role="mecanico",
-        phone=mechanic.phone,
-        specialty=mechanic.specialty,
-        whatsapp_apikey=mechanic.whatsapp_apikey,
-        active=True
+        id=user_id, email=mechanic.email, name=mechanic.name, role="mecanico",
+        phone=mechanic.phone, specialty=mechanic.specialty,
+        whatsapp_apikey=mechanic.whatsapp_apikey, active=True
     )
 
 @api_router.get("/mechanics", response_model=List[MecanicoResponse])
 async def get_mechanics(user: dict = Depends(require_admin_or_mechanic)):
     mechanics = await db.users.find({"role": "mecanico"}, {"_id": 0, "password": 0}).to_list(100)
     return [MecanicoResponse(
-        id=m["id"],
-        email=m["email"],
-        name=m["name"],
-        role=m["role"],
-        phone=m.get("phone"),
-        specialty=m.get("specialty"),
-        whatsapp_apikey=m.get("whatsapp_apikey"),
-        active=m.get("active", True)
+        id=m["id"], email=m["email"], name=m["name"], role=m["role"],
+        phone=m.get("phone"), specialty=m.get("specialty"),
+        whatsapp_apikey=m.get("whatsapp_apikey"), active=m.get("active", True)
     ) for m in mechanics]
 
 @api_router.put("/mechanics/{mechanic_id}/toggle", response_model=dict)
@@ -452,7 +597,6 @@ async def toggle_mechanic(mechanic_id: str, admin: dict = Depends(require_admin)
     mechanic = await db.users.find_one({"id": mechanic_id, "role": "mecanico"})
     if not mechanic:
         raise HTTPException(status_code=404, detail="Mecánico no encontrado")
-    
     new_status = not mechanic.get("active", True)
     await db.users.update_one({"id": mechanic_id}, {"$set": {"active": new_status}})
     return {"message": f"Mecánico {'activado' if new_status else 'desactivado'}", "active": new_status}
@@ -492,8 +636,7 @@ def client_appointment_filter(user: dict) -> dict:
 
 async def get_client_appointment_or_404(appt_id: str, user: dict) -> dict:
     appointment = await db.appointments.find_one(
-        {"id": appt_id, **client_appointment_filter(user)},
-        {"_id": 0}
+        {"id": appt_id, **client_appointment_filter(user)}, {"_id": 0}
     )
     if not appointment:
         raise HTTPException(status_code=404, detail="Cita no encontrada")
@@ -501,10 +644,7 @@ async def get_client_appointment_or_404(appt_id: str, user: dict) -> dict:
 
 def ensure_appointment_can_change(appointment: dict):
     if appointment.get("status") == "en_servicio":
-        raise HTTPException(
-            status_code=400,
-            detail="No puedes editar ni eliminar la cita porque la moto ya está en proceso"
-        )
+        raise HTTPException(status_code=400, detail="No puedes editar ni eliminar la cita porque la moto ya está en proceso")
 
 @api_router.post("/appointments", response_model=AppointmentResponse)
 async def create_appointment(appointment: AppointmentCreate, user: dict = Depends(require_admin)):
@@ -523,8 +663,7 @@ async def get_client_appointments(user: dict = Depends(get_current_user)):
     if user["role"] != "cliente":
         raise HTTPException(status_code=403, detail="Acceso denegado")
     appointments = await db.appointments.find(
-        client_appointment_filter(user),
-        {"_id": 0}
+        client_appointment_filter(user), {"_id": 0}
     ).sort("scheduled_date", -1).to_list(100)
     return [AppointmentResponse(**a) for a in appointments]
 
@@ -545,14 +684,12 @@ async def update_client_appointment(appt_id: str, updates: AppointmentUpdate, us
         raise HTTPException(status_code=403, detail="Acceso denegado")
     appointment = await get_client_appointment_or_404(appt_id, user)
     ensure_appointment_can_change(appointment)
-
     update_data = updates.model_dump(exclude_unset=True)
     update_data.pop("client_email", None)
     if "vehicle_plate" in update_data and update_data["vehicle_plate"]:
         update_data["vehicle_plate"] = update_data["vehicle_plate"].upper()
     if not update_data:
         return AppointmentResponse(**appointment)
-
     await db.appointments.update_one({"id": appt_id}, {"$set": update_data})
     updated = await db.appointments.find_one({"id": appt_id}, {"_id": 0})
     return AppointmentResponse(**updated)
@@ -585,15 +722,13 @@ async def delete_appointment(appt_id: str, user: dict = Depends(require_admin)):
         raise HTTPException(status_code=404, detail="Cita no encontrada")
     return {"message": "Cita eliminada"}
 
-# ==================== SERVICES (Production) ====================
+# ==================== SERVICES ====================
 
 @api_router.post("/services", response_model=ServiceResponse)
 async def create_service(service: ServiceCreate, user: dict = Depends(require_admin)):
-    # Get appointment details
     appointment = await db.appointments.find_one({"id": service.appointment_id}, {"_id": 0})
     if not appointment:
         raise HTTPException(status_code=404, detail="Cita no encontrada")
-    
     service_id = str(uuid.uuid4())
     service_doc = {
         "id": service_id,
@@ -617,10 +752,7 @@ async def create_service(service: ServiceCreate, user: dict = Depends(require_ad
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
     await db.services.insert_one(service_doc)
-    
-    # Update appointment status
     await db.appointments.update_one({"id": service.appointment_id}, {"$set": {"status": "en_servicio"}})
-    
     return ServiceResponse(**{k: v for k, v in service_doc.items() if k != "_id"})
 
 @api_router.get("/services", response_model=List[ServiceResponse])
@@ -630,10 +762,8 @@ async def get_services(user: dict = Depends(require_admin_or_mechanic)):
 
 @api_router.get("/services/mechanic", response_model=List[ServiceResponse])
 async def get_mechanic_services(user: dict = Depends(get_current_user)):
-    """Get services assigned to current mechanic"""
     if user["role"] not in ["mecanico", "admin"]:
         raise HTTPException(status_code=403, detail="Acceso denegado")
-    
     query = {"mechanic_id": user["id"]} if user["role"] == "mecanico" else {}
     services = await db.services.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
     return [ServiceResponse(**s) for s in services]
@@ -643,18 +773,12 @@ async def update_service(service_id: str, update: ServiceUpdate, user: dict = De
     service = await db.services.find_one({"id": service_id}, {"_id": 0})
     if not service:
         raise HTTPException(status_code=404, detail="Servicio no encontrado")
-    
     update_data = {k: v for k, v in update.model_dump().items() if v is not None}
-    
-    # If assigning mechanic, attach mechanic info. Payment is collected at delivery.
     if "mechanic_id" in update_data or "shift" in update_data:
-        # Get mechanic info if assigning
         if "mechanic_id" in update_data:
             mechanic = await db.users.find_one({"id": update_data["mechanic_id"]}, {"_id": 0})
             if mechanic:
                 update_data["mechanic_name"] = mechanic["name"]
-                
-                # Send WhatsApp notification if mechanic has phone and apikey
                 if mechanic.get("phone") and mechanic.get("whatsapp_apikey") and update_data.get("shift"):
                     message = generate_ai_message(
                         mechanic_name=mechanic["name"],
@@ -669,12 +793,8 @@ async def update_service(service_id: str, update: ServiceUpdate, user: dict = De
                         apikey=mechanic["whatsapp_apikey"],
                         message=message
                     )
-                    logging.info(f"WhatsApp notification sent to {mechanic['name']}")
-    
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
-    
     await db.services.update_one({"id": service_id}, {"$set": update_data})
-    
     updated_service = await db.services.find_one({"id": service_id}, {"_id": 0})
     return ServiceResponse(**updated_service)
 
@@ -685,28 +805,22 @@ async def update_service_progress(
     update: Optional[ServiceProgressUpdate] = None,
     user: dict = Depends(get_current_user)
 ):
-    """Mechanic updates progress"""
     if user["role"] not in ["mecanico", "admin"]:
         raise HTTPException(status_code=403, detail="Acceso denegado")
-    
     service = await db.services.find_one({"id": service_id}, {"_id": 0})
     if not service:
         raise HTTPException(status_code=404, detail="Servicio no encontrado")
-    
     if user["role"] == "mecanico" and service["mechanic_id"] != user["id"]:
         raise HTTPException(status_code=403, detail="No tienes acceso a este servicio")
-    
     update_data = update.model_dump(exclude_unset=True) if update else {}
     next_progress = update_data.get("progress", progress)
     if next_progress is None:
         next_progress = service["progress"]
     next_progress = max(0, min(100, next_progress))
-    
     allowed_statuses = {"recibido", "diagnostico", "en_reparacion", "listo"}
     requested_status = update_data.get("status")
     if requested_status and requested_status not in allowed_statuses:
         raise HTTPException(status_code=400, detail="Estado de proceso inválido")
-    
     status = requested_status or ("listo" if next_progress == 100 else ("en_reparacion" if next_progress > 0 else service["status"]))
     fields_to_set = {
         "progress": next_progress,
@@ -715,12 +829,7 @@ async def update_service_progress(
     }
     if "mechanic_notes" in update_data:
         fields_to_set["mechanic_notes"] = update_data["mechanic_notes"].strip() or None
-    
-    await db.services.update_one(
-        {"id": service_id},
-        {"$set": fields_to_set}
-    )
-    
+    await db.services.update_one({"id": service_id}, {"$set": fields_to_set})
     return {"message": "Progreso actualizado", "progress": next_progress, "status": status}
 
 # ==================== PAYMENTS ====================
@@ -730,14 +839,11 @@ async def create_payment(payment: PaymentCreate, user: dict = Depends(require_ad
     service = await db.services.find_one({"id": payment.service_id}, {"_id": 0})
     if not service:
         raise HTTPException(status_code=404, detail="Servicio no encontrado")
-    
     cash_needed = payment.total_amount - payment.transfer_amount
     change_amount = max(0, payment.cash_received - cash_needed) if payment.cash_received > 0 else 0
-    
     transfer_ok = payment.transfer_amount == 0 or (payment.transfer_reference and len(payment.transfer_reference) > 0)
     cash_ok = cash_needed <= 0 or payment.cash_received >= cash_needed
     payment_complete = transfer_ok and cash_ok
-    
     payment_id = str(uuid.uuid4())
     payment_doc = {
         "id": payment_id,
@@ -754,13 +860,11 @@ async def create_payment(payment: PaymentCreate, user: dict = Depends(require_ad
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.payments.insert_one(payment_doc)
-    
     if payment_complete:
         await db.services.update_one(
             {"id": payment.service_id},
             {"$set": {"payment_status": "pagado", "updated_at": datetime.now(timezone.utc).isoformat()}}
         )
-    
     return PaymentResponse(**{k: v for k, v in payment_doc.items() if k != "_id"})
 
 @api_router.get("/payments", response_model=List[PaymentResponse])
@@ -773,17 +877,11 @@ async def confirm_transfer(payment_id: str, user: dict = Depends(require_admin))
     payment = await db.payments.find_one({"id": payment_id}, {"_id": 0})
     if not payment:
         raise HTTPException(status_code=404, detail="Pago no encontrado")
-    
-    await db.payments.update_one(
-        {"id": payment_id},
-        {"$set": {"transfer_confirmed": True, "payment_complete": True}}
-    )
-    
+    await db.payments.update_one({"id": payment_id}, {"$set": {"transfer_confirmed": True, "payment_complete": True}})
     await db.services.update_one(
         {"id": payment["service_id"]},
         {"$set": {"payment_status": "pagado", "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
-    
     return {"message": "Transferencia confirmada"}
 
 # ==================== INVENTORY ====================
@@ -793,18 +891,11 @@ async def create_inventory_item(item: InventoryItemCreate, user: dict = Depends(
     existing = await db.inventory.find_one({"sku": item.sku})
     if existing:
         raise HTTPException(status_code=400, detail="SKU ya existe")
-    
     item_id = str(uuid.uuid4())
     item_doc = {
-        "id": item_id,
-        "name": item.name,
-        "sku": item.sku,
-        "category": item.category,
-        "quantity": item.quantity,
-        "min_stock": item.min_stock,
-        "unit_price": item.unit_price,
-        "supplier": item.supplier,
-        "low_stock": item.quantity < item.min_stock,
+        "id": item_id, "name": item.name, "sku": item.sku, "category": item.category,
+        "quantity": item.quantity, "min_stock": item.min_stock, "unit_price": item.unit_price,
+        "supplier": item.supplier, "low_stock": item.quantity < item.min_stock,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.inventory.insert_one(item_doc)
@@ -825,16 +916,12 @@ async def update_inventory_item(item_id: str, update: InventoryItemUpdate, user:
     item = await db.inventory.find_one({"id": item_id}, {"_id": 0})
     if not item:
         raise HTTPException(status_code=404, detail="Artículo no encontrado")
-    
     update_data = {k: v for k, v in update.model_dump().items() if v is not None}
-    
     if "quantity" in update_data or "min_stock" in update_data:
         new_qty = update_data.get("quantity", item["quantity"])
         new_min = update_data.get("min_stock", item["min_stock"])
         update_data["low_stock"] = new_qty < new_min
-    
     await db.inventory.update_one({"id": item_id}, {"$set": update_data})
-    
     updated_item = await db.inventory.find_one({"id": item_id}, {"_id": 0})
     return InventoryItemResponse(**updated_item)
 
@@ -843,15 +930,9 @@ async def adjust_inventory(item_id: str, adjustment: int, user: dict = Depends(r
     item = await db.inventory.find_one({"id": item_id}, {"_id": 0})
     if not item:
         raise HTTPException(status_code=404, detail="Artículo no encontrado")
-    
     new_qty = max(0, item["quantity"] + adjustment)
     low_stock = new_qty < item["min_stock"]
-    
-    await db.inventory.update_one(
-        {"id": item_id},
-        {"$set": {"quantity": new_qty, "low_stock": low_stock}}
-    )
-    
+    await db.inventory.update_one({"id": item_id}, {"$set": {"quantity": new_qty, "low_stock": low_stock}})
     return {"message": "Inventario ajustado", "new_quantity": new_qty, "low_stock": low_stock}
 
 @api_router.delete("/inventory/{item_id}")
@@ -867,41 +948,25 @@ async def delete_inventory_item(item_id: str, user: dict = Depends(require_admin
 async def create_weekly_cut(cut_data: WeeklyCutCreate, user: dict = Depends(require_admin)):
     if cut_data.pin != WEEKLY_CUT_PIN:
         raise HTTPException(status_code=403, detail="PIN incorrecto")
-    
     today = datetime.now(timezone.utc)
-    if today.weekday() != 5:
-        logging.warning(f"Weekly cut performed on non-Saturday: {today.strftime('%A')}")
-    
     start_of_week = today - timedelta(days=today.weekday())
     end_of_week = start_of_week + timedelta(days=6)
-    
     payments = await db.payments.find({
         "payment_complete": True,
-        "created_at": {
-            "$gte": start_of_week.isoformat(),
-            "$lte": end_of_week.isoformat()
-        }
+        "created_at": {"$gte": start_of_week.isoformat(), "$lte": end_of_week.isoformat()}
     }, {"_id": 0}).to_list(1000)
-    
     total_revenue = sum(p["total_amount"] for p in payments)
     cash_total = sum(p["cash_amount"] for p in payments)
     transfer_total = sum(p["transfer_amount"] for p in payments)
-    
     cut_id = str(uuid.uuid4())
     cut_doc = {
-        "id": cut_id,
-        "start_date": start_of_week.strftime("%Y-%m-%d"),
-        "end_date": end_of_week.strftime("%Y-%m-%d"),
-        "total_services": len(payments),
-        "total_revenue": total_revenue,
-        "cash_total": cash_total,
-        "transfer_total": transfer_total,
-        "notes": cut_data.notes,
-        "created_by": user["name"],
+        "id": cut_id, "start_date": start_of_week.strftime("%Y-%m-%d"),
+        "end_date": end_of_week.strftime("%Y-%m-%d"), "total_services": len(payments),
+        "total_revenue": total_revenue, "cash_total": cash_total, "transfer_total": transfer_total,
+        "notes": cut_data.notes, "created_by": user["name"],
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     await db.weekly_cuts.insert_one(cut_doc)
-    
     return WeeklyCutResponse(**{k: v for k, v in cut_doc.items() if k != "_id"})
 
 @api_router.get("/weekly-cuts", response_model=List[WeeklyCutResponse])
@@ -917,10 +982,10 @@ async def check_saturday():
 # ==================== CLIENT PORTAL ====================
 
 SERVICE_STATUS_META = {
-    "recibido": {"step": 1, "label": "Recibido"},
-    "diagnostico": {"step": 2, "label": "Diagnóstico"},
+    "recibido":      {"step": 1, "label": "Recibido"},
+    "diagnostico":   {"step": 2, "label": "Diagnóstico"},
     "en_reparacion": {"step": 3, "label": "En Reparación"},
-    "listo": {"step": 4, "label": "Listo"}
+    "listo":         {"step": 4, "label": "Listo"}
 }
 
 def format_client_service(service: dict) -> dict:
@@ -947,16 +1012,11 @@ def format_client_service(service: dict) -> dict:
 def split_active_and_history(services: List[dict]) -> dict:
     formatted = [format_client_service(service) for service in services]
     active = next((service for service in formatted if service["status"] != "listo"), None)
-    return {
-        "active_service": active,
-        "history": formatted,
-        "total": len(formatted)
-    }
+    return {"active_service": active, "history": formatted, "total": len(formatted)}
 
 @api_router.get("/track/{plate}")
 async def track_by_plate(plate: str):
     plate = plate.upper().strip()
-    
     service = await db.services.find_one(
         {"vehicle_plate": plate, "status": {"$ne": "listo"}},
         {"_id": 0, "mechanic_id": 0}
@@ -967,226 +1027,93 @@ async def track_by_plate(plate: str):
             {"_id": 0, "mechanic_id": 0},
             sort=[("updated_at", -1)]
         )
-    
     if not service:
         raise HTTPException(status_code=404, detail="No se encontró servicio para esta placa")
-    
     return format_client_service(service)
 
 @api_router.get("/track/{plate}/history")
 async def track_history_by_plate(plate: str):
     plate = plate.upper().strip()
     services = await db.services.find(
-        {"vehicle_plate": plate},
-        {"_id": 0, "mechanic_id": 0}
+        {"vehicle_plate": plate}, {"_id": 0, "mechanic_id": 0}
     ).sort("created_at", -1).to_list(100)
-    
     if not services:
         raise HTTPException(status_code=404, detail="No se encontró historial para esta placa")
-    
     return split_active_and_history(services)
 
 @api_router.get("/client/services")
 async def get_client_services(user: dict = Depends(get_current_user)):
     if user["role"] != "cliente":
         raise HTTPException(status_code=403, detail="Acceso denegado")
-    
     appointment_query = [{"client_email": user["email"]}]
     if user.get("phone"):
         appointment_query.append({"client_phone": user["phone"]})
     appointments = await db.appointments.find(
-        {"$or": appointment_query},
-        {"_id": 0, "id": 1}
+        {"$or": appointment_query}, {"_id": 0, "id": 1}
     ).to_list(500)
-    appointment_ids = [appointment["id"] for appointment in appointments]
-    
-    service_query = [
-        {"client_email": user["email"]},
-        {"appointment_id": {"$in": appointment_ids}}
-    ]
+    appointment_ids = [a["id"] for a in appointments]
+    service_query = [{"client_email": user["email"]}, {"appointment_id": {"$in": appointment_ids}}]
     if user.get("phone"):
         service_query.append({"client_phone": user["phone"]})
-    
     services = await db.services.find(
-        {"$or": service_query},
-        {"_id": 0, "mechanic_id": 0}
+        {"$or": service_query}, {"_id": 0, "mechanic_id": 0}
     ).sort("created_at", -1).to_list(100)
-    
     return split_active_and_history(services)
 
-# ==================== DASHBOARD STATS ====================
+# ==================== DASHBOARD ====================
 
 @api_router.get("/dashboard/stats")
 async def get_dashboard_stats(user: dict = Depends(require_admin)):
     today = datetime.now(timezone.utc).date()
     today_start = datetime.combine(today, datetime.min.time()).isoformat()
-    
     total_services = await db.services.count_documents({})
     active_services = await db.services.count_documents({"status": {"$ne": "listo"}})
     completed_services = await db.services.count_documents({"status": "listo"})
-    
     payments = await db.payments.find({"payment_complete": True}, {"_id": 0}).to_list(1000)
     total_revenue = sum(p["total_amount"] for p in payments)
     cash_revenue = sum(p["cash_amount"] for p in payments)
     transfer_revenue = sum(p["transfer_amount"] for p in payments)
-    
-    today_payments = await db.payments.find({
-        "payment_complete": True,
-        "created_at": {"$gte": today_start}
-    }, {"_id": 0}).to_list(100)
+    today_payments = await db.payments.find(
+        {"payment_complete": True, "created_at": {"$gte": today_start}}, {"_id": 0}
+    ).to_list(100)
     today_revenue = sum(p["total_amount"] for p in today_payments)
-    
     low_stock_count = await db.inventory.count_documents({"low_stock": True})
     mechanics = await db.users.find({"role": "mecanico", "active": True}, {"_id": 0}).to_list(20)
     pending_appointments = await db.appointments.count_documents({"status": "pendiente"})
-    
     return {
-        "total_services": total_services,
-        "active_services": active_services,
-        "completed_services": completed_services,
-        "total_revenue": total_revenue,
-        "cash_revenue": cash_revenue,
-        "transfer_revenue": transfer_revenue,
-        "today_revenue": today_revenue,
-        "low_stock_count": low_stock_count,
-        "active_mechanics": len(mechanics),
-        "pending_appointments": pending_appointments
+        "total_services": total_services, "active_services": active_services,
+        "completed_services": completed_services, "total_revenue": total_revenue,
+        "cash_revenue": cash_revenue, "transfer_revenue": transfer_revenue,
+        "today_revenue": today_revenue, "low_stock_count": low_stock_count,
+        "active_mechanics": len(mechanics), "pending_appointments": pending_appointments
     }
-
-# ==================== REPORTS ====================
-
-@api_router.get("/reports/services")
-async def get_services_report(
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    user: dict = Depends(require_admin)
-):
-    query = {}
-    if start_date:
-        query["created_at"] = {"$gte": start_date}
-    if end_date:
-        if "created_at" in query:
-            query["created_at"]["$lte"] = end_date
-        else:
-            query["created_at"] = {"$lte": end_date}
-    
-    services = await db.services.find(query, {"_id": 0}).to_list(1000)
-    return {"total_count": len(services), "services": services}
-
-@api_router.get("/reports/payments")
-async def get_payments_report(
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    user: dict = Depends(require_admin)
-):
-    query = {"payment_complete": True}
-    if start_date:
-        query["created_at"] = {"$gte": start_date}
-    if end_date:
-        if "created_at" in query:
-            query["created_at"]["$lte"] = end_date
-        else:
-            query["created_at"] = {"$lte": end_date}
-    
-    payments = await db.payments.find(query, {"_id": 0}).to_list(1000)
-    
-    total = sum(p["total_amount"] for p in payments)
-    cash = sum(p["cash_amount"] for p in payments)
-    transfers = sum(p["transfer_amount"] for p in payments)
-    
-    return {
-        "total_count": len(payments),
-        "total_amount": total,
-        "cash_total": cash,
-        "transfer_total": transfers,
-        "payments": payments
-    }
-
-# ==================== SEED ADMIN ====================
-
-@api_router.post("/seed-admin")
-async def seed_admin():
-    existing = await db.users.find_one({"email": "admin@yepezcontrols.com"})
-    if existing:
-        return {"message": "Admin ya existe", "email": "admin@yepezcontrols.com"}
-    
-    admin_id = str(uuid.uuid4())
-    admin_doc = {
-        "id": admin_id,
-        "email": "admin@yepezcontrols.com",
-        "password": hash_password("Admin2026!"),
-        "name": "Alfredo Yepez",
-        "phone": "9931234567",
-        "role": "admin",
-        "created_at": datetime.now(timezone.utc).isoformat()
-    }
-    await db.users.insert_one(admin_doc)
-    
-    return {
-        "message": "Admin creado",
-        "email": "admin@yepezcontrols.com",
-        "password": "Admin2026!"
-    }
-
-# ==================== RESET DATA ====================
-
-@api_router.delete("/reset-all-data")
-async def reset_all_data(user: dict = Depends(require_admin)):
-    try:
-        await db.appointments.delete_many({})
-        await db.services.delete_many({})
-        await db.payments.delete_many({})
-        await db.inventory.delete_many({})
-        await db.weekly_cuts.delete_many({})
-        await db.users.delete_many({"role": {"$ne": "admin"}})
-        
-        return {
-            "message": "Todos los datos de prueba han sido eliminados",
-            "deleted": ["appointments", "services", "payments", "inventory", "weekly_cuts", "mechanics"]
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al eliminar datos: {str(e)}")
-
-# ==================== DASHBOARD CHARTS ====================
 
 @api_router.get("/dashboard/charts")
 async def get_dashboard_charts(user: dict = Depends(require_admin)):
     today = datetime.now(timezone.utc)
     week_ago = today - timedelta(days=7)
-    
     daily_revenue = []
     for i in range(7):
         day = week_ago + timedelta(days=i)
         day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
         day_end = day.replace(hour=23, minute=59, second=59, microsecond=999999)
-        
         payments = await db.payments.find({
             "payment_complete": True,
-            "created_at": {
-                "$gte": day_start.isoformat(),
-                "$lte": day_end.isoformat()
-            }
+            "created_at": {"$gte": day_start.isoformat(), "$lte": day_end.isoformat()}
         }, {"_id": 0}).to_list(100)
-        
-        total = sum(p["total_amount"] for p in payments)
-        cash = sum(p["cash_amount"] for p in payments)
-        transfer = sum(p["transfer_amount"] for p in payments)
-        
         daily_revenue.append({
             "date": day.strftime("%d/%m"),
             "day": ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"][day.weekday()],
-            "total": total,
-            "efectivo": cash,
-            "transferencia": transfer
+            "total": sum(p["total_amount"] for p in payments),
+            "efectivo": sum(p["cash_amount"] for p in payments),
+            "transferencia": sum(p["transfer_amount"] for p in payments)
         })
-    
     status_counts = {
         "recibido": await db.services.count_documents({"status": "recibido"}),
         "diagnostico": await db.services.count_documents({"status": "diagnostico"}),
         "en_reparacion": await db.services.count_documents({"status": "en_reparacion"}),
         "listo": await db.services.count_documents({"status": "listo"})
     }
-    
     inventory_items = await db.inventory.find({}, {"_id": 0}).to_list(500)
     category_data = {}
     for item in inventory_items:
@@ -1195,15 +1122,6 @@ async def get_dashboard_charts(user: dict = Depends(require_admin)):
             category_data[cat] = {"quantity": 0, "value": 0}
         category_data[cat]["quantity"] += item["quantity"]
         category_data[cat]["value"] += item["quantity"] * item["unit_price"]
-    
-    inventory_chart = [
-        {"category": k, "cantidad": v["quantity"], "valor": v["value"]}
-        for k, v in category_data.items()
-    ]
-    
-    appointments_count = await db.appointments.count_documents({})
-    pending_appointments = await db.appointments.count_documents({"status": "pendiente"})
-    
     return {
         "daily_revenue": daily_revenue,
         "services_by_status": [
@@ -1212,121 +1130,139 @@ async def get_dashboard_charts(user: dict = Depends(require_admin)):
             {"status": "En Reparación", "count": status_counts["en_reparacion"], "fill": "#f97316"},
             {"status": "Listo", "count": status_counts["listo"], "fill": "#22c55e"}
         ],
-        "inventory_by_category": inventory_chart,
+        "inventory_by_category": [
+            {"category": k, "cantidad": v["quantity"], "valor": v["value"]}
+            for k, v in category_data.items()
+        ],
         "appointments": {
-            "total": appointments_count,
-            "pending": pending_appointments
+            "total": await db.appointments.count_documents({}),
+            "pending": await db.appointments.count_documents({"status": "pendiente"})
         }
     }
 
-# ==================== EXPORT REPORTS ====================
+# ==================== REPORTS ====================
 
-@api_router.get("/reports/inventory/export")
-async def export_inventory_report(user: dict = Depends(require_admin)):
-    items = await db.inventory.find({}, {"_id": 0}).to_list(500)
-    
-    total_items = len(items)
-    total_units = sum(i["quantity"] for i in items)
-    total_value = sum(i["quantity"] * i["unit_price"] for i in items)
-    low_stock = [i for i in items if i.get("low_stock", False)]
-    
-    return {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
-        "generated_by": user["name"],
-        "summary": {
-            "total_items": total_items,
-            "total_units": total_units,
-            "total_value": total_value,
-            "low_stock_count": len(low_stock)
-        },
-        "items": items,
-        "low_stock_items": low_stock
-    }
+@api_router.get("/reports/services")
+async def get_services_report(start_date: Optional[str] = None, end_date: Optional[str] = None, user: dict = Depends(require_admin)):
+    query = {}
+    if start_date:
+        query["created_at"] = {"$gte": start_date}
+    if end_date:
+        query.setdefault("created_at", {})["$lte"] = end_date
+    services = await db.services.find(query, {"_id": 0}).to_list(1000)
+    return {"total_count": len(services), "services": services}
 
-@api_router.get("/reports/sales/export")
-async def export_sales_report(
-    start_date: Optional[str] = None,
-    end_date: Optional[str] = None,
-    user: dict = Depends(require_admin)
-):
+@api_router.get("/reports/payments")
+async def get_payments_report(start_date: Optional[str] = None, end_date: Optional[str] = None, user: dict = Depends(require_admin)):
     query = {"payment_complete": True}
     if start_date:
         query["created_at"] = {"$gte": start_date}
     if end_date:
-        if "created_at" in query:
-            query["created_at"]["$lte"] = end_date
-        else:
-            query["created_at"] = {"$lte": end_date}
-    
+        query.setdefault("created_at", {})["$lte"] = end_date
     payments = await db.payments.find(query, {"_id": 0}).to_list(1000)
-    
-    enriched_payments = []
+    return {
+        "total_count": len(payments),
+        "total_amount": sum(p["total_amount"] for p in payments),
+        "cash_total": sum(p["cash_amount"] for p in payments),
+        "transfer_total": sum(p["transfer_amount"] for p in payments),
+        "payments": payments
+    }
+
+@api_router.get("/reports/inventory/export")
+async def export_inventory_report(user: dict = Depends(require_admin)):
+    items = await db.inventory.find({}, {"_id": 0}).to_list(500)
+    low_stock = [i for i in items if i.get("low_stock", False)]
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_by": user["name"],
+        "summary": {
+            "total_items": len(items),
+            "total_units": sum(i["quantity"] for i in items),
+            "total_value": sum(i["quantity"] * i["unit_price"] for i in items),
+            "low_stock_count": len(low_stock)
+        },
+        "items": items, "low_stock_items": low_stock
+    }
+
+@api_router.get("/reports/sales/export")
+async def export_sales_report(start_date: Optional[str] = None, end_date: Optional[str] = None, user: dict = Depends(require_admin)):
+    query = {"payment_complete": True}
+    if start_date:
+        query["created_at"] = {"$gte": start_date}
+    if end_date:
+        query.setdefault("created_at", {})["$lte"] = end_date
+    payments = await db.payments.find(query, {"_id": 0}).to_list(1000)
+    enriched = []
     for p in payments:
         service = await db.services.find_one({"id": p["service_id"]}, {"_id": 0})
-        enriched_payments.append({
-            **p,
+        enriched.append({**p,
             "vehicle_plate": service["vehicle_plate"] if service else "N/A",
             "vehicle_model": service["vehicle_model"] if service else "N/A",
             "client_name": service["client_name"] if service else "N/A"
         })
-    
-    total = sum(p["total_amount"] for p in payments)
-    cash = sum(p["cash_amount"] for p in payments)
-    transfers = sum(p["transfer_amount"] for p in payments)
-    
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "generated_by": user["name"],
-        "period": {
-            "start": start_date or "Inicio",
-            "end": end_date or "Actual"
-        },
         "summary": {
             "total_transactions": len(payments),
-            "total_revenue": total,
-            "cash_total": cash,
-            "transfer_total": transfers
+            "total_revenue": sum(p["total_amount"] for p in payments),
+            "cash_total": sum(p["cash_amount"] for p in payments),
+            "transfer_total": sum(p["transfer_amount"] for p in payments)
         },
-        "payments": enriched_payments
+        "payments": enriched
     }
 
 @api_router.get("/reports/weekly-cuts/export")
 async def export_weekly_cuts_report(user: dict = Depends(require_admin)):
     cuts = await db.weekly_cuts.find({}, {"_id": 0}).sort("created_at", -1).to_list(52)
-    
-    total_revenue = sum(c["total_revenue"] for c in cuts)
-    total_services = sum(c["total_services"] for c in cuts)
-    total_cash = sum(c["cash_total"] for c in cuts)
-    total_transfers = sum(c["transfer_total"] for c in cuts)
-    
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "generated_by": user["name"],
         "summary": {
             "total_cuts": len(cuts),
-            "total_revenue": total_revenue,
-            "total_services": total_services,
-            "cash_total": total_cash,
-            "transfer_total": total_transfers
+            "total_revenue": sum(c["total_revenue"] for c in cuts),
+            "total_services": sum(c["total_services"] for c in cuts),
+            "cash_total": sum(c["cash_total"] for c in cuts),
+            "transfer_total": sum(c["transfer_total"] for c in cuts)
         },
         "cuts": cuts
     }
 
-# ==================== INCLUDE ROUTER & ROOT ====================
+# ==================== SEED & RESET ====================
 
-# Include all /api routes
+@api_router.post("/seed-admin")
+async def seed_admin():
+    existing = await db.users.find_one({"email": "admin@yepezcontrols.com"})
+    if existing:
+        return {"message": "Admin ya existe", "email": "admin@yepezcontrols.com"}
+    admin_id = str(uuid.uuid4())
+    await db.users.insert_one({
+        "id": admin_id, "email": "admin@yepezcontrols.com",
+        "password": hash_password("Admin2026!"), "name": "Alfredo Yepez",
+        "phone": "9931234567", "role": "admin", "verified": True,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    return {"message": "Admin creado", "email": "admin@yepezcontrols.com", "password": "Admin2026!"}
+
+@api_router.delete("/reset-all-data")
+async def reset_all_data(user: dict = Depends(require_admin)):
+    await db.appointments.delete_many({})
+    await db.services.delete_many({})
+    await db.payments.delete_many({})
+    await db.inventory.delete_many({})
+    await db.weekly_cuts.delete_many({})
+    await db.users.delete_many({"role": {"$ne": "admin"}})
+    return {"message": "Todos los datos eliminados"}
+
+# ==================== INCLUDE ROUTER ====================
+
 app.include_router(api_router)
 
-# Ruta raíz del app principal (corrige el "Not Found" en /)
 @app.get("/")
 async def root_main():
     return {"message": "YEPEZ CONTROLS API v1.0", "status": "running"}
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 @app.on_event("shutdown")
