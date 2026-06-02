@@ -1,227 +1,313 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
+import { useState, useEffect } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Bike, Eye, EyeOff, UserPlus } from "lucide-react";
+import axios from "axios";
+import emailjs from "@emailjs/browser";
+import { Bike, User, Mail, Phone, Lock, Eye, EyeOff, ChevronRight, ArrowLeft, CheckCircle, RefreshCw } from "lucide-react";
+
+const API = process.env.REACT_APP_BACKEND_URL + "/api";
+const EMAILJS_SERVICE_ID = "service_5vom38o";
+const EMAILJS_TEMPLATE_ID = "template_86387s7";
+const EMAILJS_PUBLIC_KEY = "haQ6zpY-s7oKu4kdB";
 
 export default function RegisterPage() {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [step, setStep] = useState(1);
+  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", confirmPassword: "" });
+  const [code, setCode] = useState("");
+  const [generatedCode, setGeneratedCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { register } = useAuth();
+  const [resending, setResending] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  useEffect(() => {
+    emailjs.init(EMAILJS_PUBLIC_KEY);
+  }, []);
+
+  const generateCode = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+  const sendCode = async (email, name, code) => {
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      to_email: email,
+      name: name,
+      code: code,
+    });
+  };
+
+  // Paso 1 — Registro
+  const handleRegister = async (e) => {
     e.preventDefault();
-    
-    if (password !== confirmPassword) {
-      toast.error("Las contraseñas no coinciden");
+    if (!form.name.trim() || !form.email.trim() || !form.password.trim()) {
+      toast.error("Por favor completa todos los campos obligatorios");
       return;
     }
-    
-    if (password.length < 6) {
+    if (form.password.length < 6) {
       toast.error("La contraseña debe tener al menos 6 caracteres");
       return;
     }
-    
+    if (form.password !== form.confirmPassword) {
+      toast.error("Las contraseñas no coinciden");
+      return;
+    }
     setLoading(true);
-    
     try {
-      await register(name, email, password, phone);
-      toast.success("¡Registro exitoso! Bienvenido");
-      navigate("/rastreo?panel=citas");
+      // 1. Registrar en backend
+      await axios.post(`${API}/auth/register`, {
+        name: form.name.trim(),
+        email: form.email.trim(),
+        password: form.password,
+        phone: form.phone.trim() || null
+      });
+
+      // 2. Generar código y enviar por EmailJS
+      const newCode = generateCode();
+      setGeneratedCode(newCode);
+      await sendCode(form.email.trim(), form.name.trim(), newCode);
+
+      toast.success("¡Revisa tu correo! Te enviamos un código de verificación");
+      setStep(2);
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Error al registrarse");
+      const msg = error?.response?.data?.detail || "Error al crear la cuenta";
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
   };
 
+  // Paso 2 — Verificación
+  const handleVerify = async (e) => {
+    e.preventDefault();
+    if (code.trim().length !== 6) {
+      toast.error("El código debe tener 6 dígitos");
+      return;
+    }
+    if (code.trim() !== generatedCode) {
+      toast.error("Código incorrecto, verifica tu correo");
+      return;
+    }
+    setLoading(true);
+    try {
+      // Verificar en backend
+      const res = await axios.post(`${API}/auth/verify-email`, {
+        email: form.email.trim(),
+        code: code.trim()
+      });
+      localStorage.setItem("token", res.data.token);
+      toast.success("¡Cuenta verificada! Bienvenido a YEPEZ CONTROLS");
+      window.location.href = "/cliente";
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || "Error al verificar");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Reenviar código
+  const handleResend = async () => {
+    setResending(true);
+    try {
+      const newCode = generateCode();
+      setGeneratedCode(newCode);
+      await sendCode(form.email.trim(), form.name.trim(), newCode);
+      // Actualizar código en backend también
+      await axios.post(`${API}/auth/resend-code`, null, { params: { email: form.email.trim() } });
+      toast.success("Código reenviado a tu correo");
+    } catch (error) {
+      toast.error("No se pudo reenviar el código");
+    } finally {
+      setResending(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen flex">
-      {/* Left Panel - Hero Image */}
-      <div className="hidden lg:flex lg:w-[60%] relative overflow-hidden">
-        <img
-          src="https://images.unsplash.com/photo-1609630875171-b1321377ee65?w=1200&q=80"
-          alt="Motorcycle Service"
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-transparent" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center p-8">
-            <Bike className="w-24 h-24 text-[#E31837] mx-auto mb-6" strokeWidth={1.5} />
-            <h1 className="text-6xl font-bold text-white tracking-tight uppercase" style={{ fontFamily: 'Barlow Condensed' }}>
+    <div className="min-h-screen bg-[#09090b] flex flex-col">
+      {/* Header */}
+      <header className="h-16 bg-zinc-950/95 border-b border-zinc-800 flex items-center px-4">
+        <div className="max-w-6xl mx-auto w-full flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-3">
+            <Bike className="w-7 h-7 text-[#E31837]" />
+            <span className="text-lg font-bold text-white uppercase tracking-tight">
               YEPEZ<span className="text-[#E31837]"> CONTROLS</span>
-            </h1>
-            <p className="text-zinc-400 mt-4 text-lg tracking-wide">
-              Portal de Transparencia para Clientes
-            </p>
-          </div>
+            </span>
+          </Link>
+          <Link to="/" className="flex items-center gap-1 text-zinc-400 hover:text-white transition-colors text-sm">
+            <ArrowLeft className="w-4 h-4" />
+            Volver al inicio
+          </Link>
         </div>
-      </div>
+      </header>
 
-      {/* Right Panel - Register Form */}
-      <div className="w-full lg:w-[40%] flex items-center justify-center p-8 bg-[#09090b]">
-        <div className="w-full max-w-md space-y-6 animate-fade-in">
-          {/* Mobile Logo */}
-          <div className="lg:hidden text-center mb-6">
-            <Bike className="w-16 h-16 text-[#E31837] mx-auto mb-4" strokeWidth={1.5} />
-            <h1 className="text-3xl font-bold text-white tracking-tight uppercase" style={{ fontFamily: 'Barlow Condensed' }}>
-              YEPEZ<span className="text-[#E31837]"> CONTROLS</span>
-            </h1>
+      <div className="flex-1 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+
+          {/* Steps indicator */}
+          <div className="flex items-center justify-center gap-3 mb-8">
+            <div className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider ${step >= 1 ? "text-white" : "text-zinc-600"}`}>
+              <div className={`w-7 h-7 rounded-sm flex items-center justify-center text-xs font-bold ${step > 1 ? "bg-green-600 text-white" : step === 1 ? "bg-green-600 text-white" : "bg-zinc-800 text-zinc-600"}`}>
+                {step > 1 ? <CheckCircle className="w-4 h-4" /> : "1"}
+              </div>
+              Datos
+            </div>
+            <div className={`w-8 h-px ${step >= 2 ? "bg-green-600" : "bg-zinc-700"}`} />
+            <div className={`flex items-center gap-2 text-sm font-bold uppercase tracking-wider ${step >= 2 ? "text-white" : "text-zinc-600"}`}>
+              <div className={`w-7 h-7 rounded-sm flex items-center justify-center text-xs font-bold ${step >= 2 ? "bg-green-600 text-white" : "bg-zinc-800 text-zinc-600"}`}>
+                2
+              </div>
+              Verificar
+            </div>
           </div>
 
-          <div className="text-center lg:text-left">
-            <h2 className="text-3xl font-bold text-white uppercase tracking-tight" style={{ fontFamily: 'Barlow Condensed' }}>
-              Crear Cuenta
-            </h2>
-            <p className="text-zinc-500 mt-2">Regístrate para rastrear tu vehículo</p>
-          </div>
+          <div className="bg-zinc-900/80 border border-zinc-800 rounded-sm p-8">
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-zinc-400 text-xs uppercase tracking-widest">
-                Nombre Completo
-              </Label>
-              <Input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Juan Pérez"
-                required
-                data-testid="register-name-input"
-                className="bg-zinc-950 border-zinc-800 focus:border-[#E31837] focus:ring-[#E31837] h-12 text-white placeholder:text-zinc-600"
-              />
-            </div>
+            {/* ===== PASO 1: FORMULARIO ===== */}
+            {step === 1 && (
+              <>
+                <div className="mb-8 text-center">
+                  <div className="w-16 h-16 bg-green-500/10 rounded-sm flex items-center justify-center mx-auto mb-4">
+                    <User className="w-8 h-8 text-green-400" />
+                  </div>
+                  <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Crear Cuenta</h1>
+                  <p className="text-zinc-500 text-sm mt-2">Regístrate para rastrear tu moto y gestionar citas</p>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-zinc-400 text-xs uppercase tracking-widest">
-                Correo Electrónico
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="correo@ejemplo.com"
-                required
-                data-testid="register-email-input"
-                className="bg-zinc-950 border-zinc-800 focus:border-[#E31837] focus:ring-[#E31837] h-12 text-white placeholder:text-zinc-600"
-              />
-            </div>
+                <form onSubmit={handleRegister} className="space-y-4">
+                  <div>
+                    <label className="text-zinc-400 text-xs uppercase tracking-wider mb-1.5 block">Nombre completo *</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                      <Input name="name" value={form.name} onChange={handleChange}
+                        placeholder="Tu nombre completo"
+                        className="bg-zinc-950 border-zinc-700 text-white pl-10 h-11 focus:border-green-500" required />
+                    </div>
+                  </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="text-zinc-400 text-xs uppercase tracking-widest">
-                Teléfono (Opcional)
-              </Label>
-              <Input
-                id="phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="993 123 4567"
-                data-testid="register-phone-input"
-                className="bg-zinc-950 border-zinc-800 focus:border-[#E31837] focus:ring-[#E31837] h-12 text-white placeholder:text-zinc-600"
-              />
-            </div>
+                  <div>
+                    <label className="text-zinc-400 text-xs uppercase tracking-wider mb-1.5 block">Correo electrónico *</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                      <Input name="email" type="email" value={form.email} onChange={handleChange}
+                        placeholder="tu@correo.com"
+                        className="bg-zinc-950 border-zinc-700 text-white pl-10 h-11 focus:border-green-500" required />
+                    </div>
+                  </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-zinc-400 text-xs uppercase tracking-widest">
-                Contraseña
-              </Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
-                  required
-                  data-testid="register-password-input"
-                  className="bg-zinc-950 border-zinc-800 focus:border-[#E31837] focus:ring-[#E31837] h-12 text-white placeholder:text-zinc-600 pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
+                  <div>
+                    <label className="text-zinc-400 text-xs uppercase tracking-wider mb-1.5 block">
+                      Teléfono <span className="text-zinc-600">(opcional)</span>
+                    </label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                      <Input name="phone" type="tel" value={form.phone} onChange={handleChange}
+                        placeholder="9931234567"
+                        className="bg-zinc-950 border-zinc-700 text-white pl-10 h-11 focus:border-green-500" />
+                    </div>
+                  </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-zinc-400 text-xs uppercase tracking-widest">
-                Confirmar Contraseña
-              </Label>
-              <Input
-                id="confirmPassword"
-                type={showPassword ? "text" : "password"}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Repite tu contraseña"
-                required
-                data-testid="register-confirm-password-input"
-                className="bg-zinc-950 border-zinc-800 focus:border-[#E31837] focus:ring-[#E31837] h-12 text-white placeholder:text-zinc-600"
-              />
-            </div>
+                  <div>
+                    <label className="text-zinc-400 text-xs uppercase tracking-wider mb-1.5 block">Contraseña *</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                      <Input name="password" type={showPassword ? "text" : "password"} value={form.password} onChange={handleChange}
+                        placeholder="Mínimo 6 caracteres"
+                        className="bg-zinc-950 border-zinc-700 text-white pl-10 pr-10 h-11 focus:border-green-500" required />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
 
-            <Button
-              type="submit"
-              disabled={loading}
-              data-testid="register-submit-btn"
-              className="w-full h-12 bg-[#E31837] hover:bg-[#C4122C] text-white font-bold uppercase tracking-wider rounded-sm transition-all shadow-[0_0_10px_rgba(227,24,55,0.2)] hover:shadow-[0_0_20px_rgba(227,24,55,0.4)]"
-            >
-              {loading ? (
-                <span className="flex items-center gap-2">
-                  <span className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></span>
-                  Registrando...
-                </span>
-              ) : (
-                <span className="flex items-center gap-2">
-                  <UserPlus className="w-5 h-5" />
-                  Crear Cuenta
-                </span>
-              )}
-            </Button>
-          </form>
+                  <div>
+                    <label className="text-zinc-400 text-xs uppercase tracking-wider mb-1.5 block">Confirmar contraseña *</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                      <Input name="confirmPassword" type={showConfirm ? "text" : "password"} value={form.confirmPassword} onChange={handleChange}
+                        placeholder="Repite tu contraseña"
+                        className="bg-zinc-950 border-zinc-700 text-white pl-10 pr-10 h-11 focus:border-green-500" required />
+                      <button type="button" onClick={() => setShowConfirm(!showConfirm)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
+                        {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
 
-          <div className="text-center space-y-4">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-zinc-800"></div>
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-[#09090b] px-2 text-zinc-600">o</span>
-              </div>
-            </div>
+                  <Button type="submit" disabled={loading}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold uppercase tracking-wider h-11 mt-2">
+                    {loading
+                      ? <span className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white" />
+                      : <><span>Continuar</span><ChevronRight className="w-4 h-4 ml-2" /></>
+                    }
+                  </Button>
+                </form>
 
-            <p className="text-zinc-500">
-              ¿Ya tienes cuenta?{" "}
-              <Link 
-                to="/login" 
-                className="text-[#E31837] hover:text-[#C4122C] font-medium transition-colors"
-                data-testid="login-link"
-              >
-                Inicia sesión
-              </Link>
-            </p>
+                <div className="mt-6 pt-6 border-t border-zinc-800 text-center space-y-2">
+                  <p className="text-zinc-500 text-sm">
+                    ¿Ya tienes cuenta?{" "}
+                    <Link to="/login" className="text-green-400 hover:text-green-300 font-medium">Inicia sesión aquí</Link>
+                  </p>
+                  <p className="text-zinc-600 text-xs">
+                    ¿Eres del taller?{" "}
+                    <Link to="/login" className="text-[#E31837] hover:text-red-400">Acceso personal →</Link>
+                  </p>
+                </div>
+              </>
+            )}
 
-            <Link 
-              to="/rastreo" 
-              className="block text-zinc-600 hover:text-zinc-400 text-sm transition-colors"
-              data-testid="track-link"
-            >
-              Rastrear mi vehículo sin cuenta →
-            </Link>
+            {/* ===== PASO 2: VERIFICACIÓN ===== */}
+            {step === 2 && (
+              <>
+                <div className="mb-8 text-center">
+                  <div className="w-16 h-16 bg-green-500/10 rounded-sm flex items-center justify-center mx-auto mb-4">
+                    <Mail className="w-8 h-8 text-green-400" />
+                  </div>
+                  <h1 className="text-2xl font-bold text-white uppercase tracking-wide">Verifica tu correo</h1>
+                  <p className="text-zinc-500 text-sm mt-2">Enviamos un código de 6 dígitos a</p>
+                  <p className="text-white font-medium text-sm mt-1">{form.email}</p>
+                </div>
+
+                <form onSubmit={handleVerify} className="space-y-4">
+                  <div>
+                    <label className="text-zinc-400 text-xs uppercase tracking-wider mb-1.5 block text-center">
+                      Código de verificación
+                    </label>
+                    <Input
+                      value={code}
+                      onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      placeholder="000000"
+                      maxLength={6}
+                      className="bg-zinc-950 border-zinc-700 text-white h-14 text-center text-3xl tracking-[1rem] font-bold focus:border-green-500"
+                    />
+                    <p className="text-zinc-600 text-xs text-center mt-2">El código expira en 15 minutos</p>
+                  </div>
+
+                  <Button type="submit" disabled={loading || code.length !== 6}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold uppercase tracking-wider h-11">
+                    {loading
+                      ? <span className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white" />
+                      : <><CheckCircle className="w-4 h-4 mr-2" /><span>Verificar y entrar</span></>
+                    }
+                  </Button>
+                </form>
+
+                <div className="mt-6 pt-6 border-t border-zinc-800 text-center space-y-3">
+                  <p className="text-zinc-500 text-sm">¿No recibiste el correo?</p>
+                  <button onClick={handleResend} disabled={resending}
+                    className="flex items-center gap-2 text-green-400 hover:text-green-300 text-sm font-medium transition-colors mx-auto">
+                    <RefreshCw className={`w-4 h-4 ${resending ? "animate-spin" : ""}`} />
+                    {resending ? "Reenviando..." : "Reenviar código"}
+                  </button>
+                  <p className="text-zinc-600 text-xs">Revisa también tu carpeta de spam</p>
+                  <button onClick={() => setStep(1)} className="text-zinc-500 hover:text-zinc-300 text-xs transition-colors">
+                    ← Cambiar correo electrónico
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
