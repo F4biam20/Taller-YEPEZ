@@ -420,21 +420,19 @@ async def require_admin_or_mechanic(user: dict = Depends(get_current_user)):
 
 @api_router.post("/auth/register", response_model=dict)
 async def register_client(user_data: UserCreate):
-    """Registro público para clientes — envía código de verificación"""
+    """Registro público para clientes — devuelve código para que EmailJS lo envíe"""
     existing = await db.users.find_one({"email": user_data.email})
     if existing:
         if existing.get("verified", True):
             raise HTTPException(status_code=400, detail="El email ya está registrado")
         else:
-            # Re-send verification code
             code = generate_verification_code()
             expires = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
             await db.users.update_one(
                 {"email": user_data.email},
                 {"$set": {"verification_code": code, "code_expires": expires}}
             )
-            send_verification_email(user_data.email, existing["name"], code)
-            return {"message": "Código reenviado", "email": user_data.email, "requires_verification": True}
+            return {"message": "Código reenviado", "email": user_data.email, "requires_verification": True, "code": code, "name": existing["name"]}
 
     user_id = str(uuid.uuid4())
     code = generate_verification_code()
@@ -454,14 +452,12 @@ async def register_client(user_data: UserCreate):
     }
     await db.users.insert_one(user_doc)
 
-    email_sent = send_verification_email(user_data.email, user_data.name, code)
-    if not email_sent:
-        logging.warning(f"Could not send verification email to {user_data.email}")
-
     return {
         "message": "Registro exitoso. Verifica tu correo.",
         "email": user_data.email,
-        "requires_verification": True
+        "requires_verification": True,
+        "code": code,
+        "name": user_data.name
     }
 
 @api_router.post("/auth/verify-email", response_model=dict)
@@ -505,7 +501,7 @@ async def verify_email(data: VerifyEmailRequest):
 
 @api_router.post("/auth/resend-code", response_model=dict)
 async def resend_verification_code(email: EmailStr):
-    """Reenvía el código de verificación"""
+    """Genera nuevo código y lo devuelve para que EmailJS lo envíe"""
     user = await db.users.find_one({"email": email}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -518,8 +514,7 @@ async def resend_verification_code(email: EmailStr):
         {"email": email},
         {"$set": {"verification_code": code, "code_expires": expires}}
     )
-    send_verification_email(email, user["name"], code)
-    return {"message": "Código reenviado exitosamente"}
+    return {"message": "Código generado", "code": code, "name": user["name"]}
 
 @api_router.post("/auth/login", response_model=dict)
 async def login(credentials: UserLogin):
