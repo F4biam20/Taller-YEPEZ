@@ -1055,6 +1055,36 @@ async def get_client_services(user: dict = Depends(get_current_user)):
     ).sort("created_at", -1).to_list(100)
     return split_active_and_history(services)
 
+# ==================== CLIENTS (Admin) ====================
+
+@api_router.get("/clients")
+async def get_clients(user: dict = Depends(require_admin)):
+    """Lista de clientes registrados con conteo de citas"""
+    clients = await db.users.find(
+        {"role": "cliente"},
+        {"_id": 0, "password": 0, "verification_code": 0, "code_expires": 0}
+    ).sort("created_at", -1).to_list(500)
+
+    result = []
+    for c in clients:
+        total_appointments = await db.appointments.count_documents({
+            "$or": [
+                {"client_email": c["email"]},
+                {"client_phone": c.get("phone", "___")}
+            ]
+        })
+        result.append({
+            "id": c["id"],
+            "name": c["name"],
+            "email": c["email"],
+            "phone": c.get("phone"),
+            "verified": c.get("verified", False),
+            "created_at": c["created_at"],
+            "total_appointments": total_appointments
+        })
+
+    return result
+
 # ==================== DASHBOARD ====================
 
 @api_router.get("/dashboard/stats")
