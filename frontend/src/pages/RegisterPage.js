@@ -56,18 +56,18 @@ export default function RegisterPage() {
     }
     setLoading(true);
     try {
-      // 1. Registrar en backend
-      await axios.post(`${API}/auth/register`, {
+      // 1. Registrar en backend — devuelve el código generado
+      const res = await axios.post(`${API}/auth/register`, {
         name: form.name.trim(),
         email: form.email.trim(),
         password: form.password,
         phone: form.phone.trim() || null
       });
 
-      // 2. Generar código y enviar por EmailJS
-      const newCode = generateCode();
-      setGeneratedCode(newCode);
-      await sendCode(form.email.trim(), form.name.trim(), newCode);
+      // 2. Enviar código por EmailJS
+      const backendCode = res.data.code;
+      setGeneratedCode(backendCode);
+      await sendCode(form.email.trim(), form.name.trim(), backendCode);
 
       toast.success("¡Revisa tu correo! Te enviamos un código de verificación");
       setStep(2);
@@ -111,11 +111,10 @@ export default function RegisterPage() {
   const handleResend = async () => {
     setResending(true);
     try {
-      const newCode = generateCode();
+      const res = await axios.post(`${API}/auth/resend-code`, null, { params: { email: form.email.trim() } });
+      const newCode = res.data.code;
       setGeneratedCode(newCode);
       await sendCode(form.email.trim(), form.name.trim(), newCode);
-      // Actualizar código en backend también
-      await axios.post(`${API}/auth/resend-code`, null, { params: { email: form.email.trim() } });
       toast.success("Código reenviado a tu correo");
     } catch (error) {
       toast.error("No se pudo reenviar el código");
