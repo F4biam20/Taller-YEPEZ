@@ -383,8 +383,20 @@ export default function ClientPortal() {
                     </div>
                     <div>
                       <label className="text-zinc-400 text-xs uppercase mb-1 block">Hora *</label>
-                      <Input name="scheduled_time" type="time" value={apptForm.scheduled_time} onChange={handleApptChange}
-                        className="bg-zinc-950 border-zinc-700 text-white h-10" required />
+                      <select name="scheduled_time" value={apptForm.scheduled_time} onChange={handleApptChange}
+                        className="w-full bg-zinc-950 border border-zinc-700 text-white h-10 rounded-md px-3 text-sm focus:outline-none focus:border-green-500" required>
+                        <option value="">Selecciona una hora...</option>
+                        <option value="08:00">08:00 AM</option>
+                        <option value="09:00">09:00 AM</option>
+                        <option value="10:00">10:00 AM</option>
+                        <option value="11:00">11:00 AM</option>
+                        <option value="12:00">12:00 PM</option>
+                        <option value="13:00">01:00 PM</option>
+                        <option value="14:00">02:00 PM</option>
+                        <option value="15:00">03:00 PM</option>
+                        <option value="16:00">04:00 PM</option>
+                        <option value="17:00">05:00 PM</option>
+                      </select>
                     </div>
                     <div className="sm:col-span-2">
                       <label className="text-zinc-400 text-xs uppercase mb-1 block">Descripción del problema</label>
