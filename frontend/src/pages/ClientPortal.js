@@ -421,7 +421,7 @@ export default function ClientPortal() {
             )}
 
             {/* Appointments list */}
-            {appointments.length === 0 ? (
+            {appointments.filter(a => a.status === "pendiente" || a.status === "confirmada").length === 0 ? (
               <Card className="bg-zinc-900/50 border-zinc-800">
                 <CardContent className="p-10 text-center">
                   <Calendar className="w-12 h-12 text-zinc-700 mx-auto mb-3" />
@@ -429,7 +429,7 @@ export default function ClientPortal() {
                 </CardContent>
               </Card>
             ) : (
-              appointments.map((appt) => {
+              appointments.filter(a => a.status === "pendiente" || a.status === "confirmada").map((appt) => {
                 const statusInfo = appointmentStatusMap[appt.status] || appointmentStatusMap.pendiente;
                 const canCancel = appt.status === "pendiente";
                 return (
