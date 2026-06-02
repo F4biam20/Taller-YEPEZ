@@ -19,12 +19,12 @@ import "@/App.css";
 const getHomePathByRole = (role) => {
   if (role === "admin") return "/admin";
   if (role === "mecanico") return "/mecanico";
-  return "/rastreo";
+  return "/cliente";
 };
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
@@ -32,31 +32,34 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
       </div>
     );
   }
-  
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  
+
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Navigate to={getHomePathByRole(user.role)} replace />;
   }
-  
+
   return children;
 };
 
 function AppRoutes() {
   const { user } = useAuth();
-  const canAccessLogin = !user || user.role === "cliente";
-  
+  const canAccessAuth = !user || user.role === "cliente";
+
   return (
     <Routes>
-      {/* Public Routes */}
+      {/* Rutas públicas */}
       <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={canAccessLogin ? <LoginPage /> : <Navigate to={getHomePathByRole(user.role)} replace />} />
-      <Route path="/registro" element={canAccessLogin ? <RegisterPage /> : <Navigate to={getHomePathByRole(user.role)} replace />} />
-      <Route path="/rastreo" element={<ClientPortal />} />
-      
-      {/* Admin Routes */}
+      <Route path="/login" element={canAccessAuth ? <LoginPage /> : <Navigate to={getHomePathByRole(user.role)} replace />} />
+      <Route path="/registro" element={canAccessAuth ? <RegisterPage /> : <Navigate to={getHomePathByRole(user.role)} replace />} />
+
+      {/* Portal del cliente */}
+      <Route path="/cliente" element={<ClientPortal />} />
+      <Route path="/rastreo" element={<Navigate to="/cliente" replace />} />
+
+      {/* Rutas de Admin */}
       <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminLayout /></ProtectedRoute>}>
         <Route index element={<Dashboard />} />
         <Route path="citas" element={<Appointments />} />
@@ -65,12 +68,12 @@ function AppRoutes() {
         <Route path="inventario" element={<Inventory />} />
         <Route path="mecanicos" element={<Mechanics />} />
       </Route>
-      
-      {/* Mechanic Routes */}
+
+      {/* Rutas de Mecánico */}
       <Route path="/mecanico" element={<ProtectedRoute allowedRoles={["mecanico"]}><MechanicLayout /></ProtectedRoute>}>
         <Route index element={<MechanicDashboard />} />
       </Route>
-      
+
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
