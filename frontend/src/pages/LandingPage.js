@@ -16,7 +16,6 @@ import { cn } from "@/lib/utils";
 
 const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
-// Imágenes de fondo para servicios
 const serviceImages = [
   "https://images.unsplash.com/photo-1762604462368-aa69fdbb482e?w=800&q=80",
   "https://images.unsplash.com/photo-1771402629441-95e637743f93?w=800&q=80",
@@ -25,11 +24,9 @@ const serviceImages = [
   "https://images.unsplash.com/photo-1761583780521-7723c3569361?w=800&q=80"
 ];
 
-// Imagen hero de moto roja
 const heroImage = "https://images.unsplash.com/photo-1711435470785-4e1146a16dcc?w=1200&q=80";
 const heroImage2 = "https://images.unsplash.com/photo-1771476304049-390cdf3a58a9?w=1200&q=80";
 
-// Servicios ofrecidos
 const servicios = [
   {
     icon: Droplets,
@@ -103,7 +100,6 @@ export default function LandingPage() {
   const [hoveredService, setHoveredService] = useState(null);
   const navigate = useNavigate();
 
-  // Cambiar imagen hero automáticamente
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentHeroImage((prev) => (prev + 1) % 2);
@@ -117,7 +113,6 @@ export default function LandingPage() {
       toast.error("Ingresa la placa de tu vehículo");
       return;
     }
-
     setLoading(true);
     try {
       const response = await axios.get(`${API}/track/${plate.trim().toUpperCase()}`);
@@ -173,19 +168,27 @@ export default function LandingPage() {
               Contacto
             </a>
           </nav>
-          <Button
-            onClick={() => navigate("/login")}
-            data-testid="access-btn"
-            className="bg-[#E31837] hover:bg-[#C4122C] text-white font-bold uppercase tracking-wider text-sm"
-          >
-            Acceso Personal
-          </Button>
+          {/* ===== BOTONES HEADER ===== */}
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => navigate("/registro")}
+              className="bg-green-600 hover:bg-green-700 text-white font-bold uppercase tracking-wider text-sm"
+            >
+              Cliente Nuevo
+            </Button>
+            <Button
+              onClick={() => navigate("/login")}
+              data-testid="access-btn"
+              className="bg-[#E31837] hover:bg-[#C4122C] text-white font-bold uppercase tracking-wider text-sm"
+            >
+              Acceso Personal
+            </Button>
+          </div>
         </div>
       </header>
 
-      {/* Hero Section con Imagen de Fondo */}
+      {/* Hero Section */}
       <section className="pt-16 relative overflow-hidden min-h-[90vh] flex items-center">
-        {/* Background Image with Transition */}
         <div className="absolute inset-0">
           {heroImages.map((img, idx) => (
             <div
@@ -248,7 +251,6 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Animated scroll indicator */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
           <div className="w-6 h-10 border-2 border-zinc-600 rounded-full flex justify-center">
             <div className="w-1 h-3 bg-[#E31837] rounded-full mt-2 animate-pulse" />
@@ -256,9 +258,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Servicios Section con Imágenes */}
+      {/* Servicios Section */}
       <section id="servicios" className="py-20 bg-zinc-950/50 relative">
-        {/* Background pattern */}
         <div className="absolute inset-0 opacity-5">
           <div className="absolute inset-0" style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23E31837' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
@@ -284,7 +285,6 @@ export default function LandingPage() {
                 onMouseLeave={() => setHoveredService(null)}
                 data-testid={`service-card-${idx}`}
               >
-                {/* Background Image on Hover */}
                 <div 
                   className={cn(
                     "absolute inset-0 transition-opacity duration-500 z-0",
@@ -312,9 +312,7 @@ export default function LandingPage() {
                   <h3 className="text-xl font-bold text-white uppercase mb-2 transition-transform duration-300 group-hover:translate-x-1" style={{ fontFamily: 'Barlow Condensed' }}>
                     {servicio.title}
                   </h3>
-                  <p className="text-zinc-500 text-sm mb-4">
-                    {servicio.description}
-                  </p>
+                  <p className="text-zinc-500 text-sm mb-4">{servicio.description}</p>
                   <div className="flex items-center justify-between">
                     <span className="text-[#E31837] font-bold text-lg" style={{ fontFamily: 'Barlow Condensed' }}>
                       {servicio.price}
@@ -328,7 +326,6 @@ export default function LandingPage() {
             ))}
           </div>
 
-          {/* CTA con imagen de fondo */}
           <div className="mt-12 text-center">
             <Card className="bg-[#E31837]/10 border-[#E31837]/30 max-w-2xl mx-auto relative overflow-hidden">
               <div 
@@ -365,7 +362,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Por qué elegirnos con imágenes */}
+      {/* Por qué elegirnos */}
       <section className="py-20 relative overflow-hidden">
         <div 
           className="absolute inset-0 opacity-10"
@@ -389,34 +386,22 @@ export default function LandingPage() {
               <div className="w-16 h-16 bg-[#E31837]/20 rounded-sm flex items-center justify-center mx-auto mb-4 transition-all duration-300 group-hover:bg-[#E31837]/30 group-hover:scale-110">
                 <Shield className="w-8 h-8 text-[#E31837]" />
               </div>
-              <h3 className="text-xl font-bold text-white uppercase mb-2" style={{ fontFamily: 'Barlow Condensed' }}>
-                Garantía
-              </h3>
-              <p className="text-zinc-500">
-                Todos nuestros servicios cuentan con garantía. Tu satisfacción es nuestra prioridad.
-              </p>
+              <h3 className="text-xl font-bold text-white uppercase mb-2" style={{ fontFamily: 'Barlow Condensed' }}>Garantía</h3>
+              <p className="text-zinc-500">Todos nuestros servicios cuentan con garantía. Tu satisfacción es nuestra prioridad.</p>
             </div>
             <div className="text-center group">
               <div className="w-16 h-16 bg-[#E31837]/20 rounded-sm flex items-center justify-center mx-auto mb-4 transition-all duration-300 group-hover:bg-[#E31837]/30 group-hover:scale-110">
                 <Star className="w-8 h-8 text-[#E31837]" />
               </div>
-              <h3 className="text-xl font-bold text-white uppercase mb-2" style={{ fontFamily: 'Barlow Condensed' }}>
-                Experiencia
-              </h3>
-              <p className="text-zinc-500">
-                Más de 10 años de experiencia en servicio de motocicletas VENTO.
-              </p>
+              <h3 className="text-xl font-bold text-white uppercase mb-2" style={{ fontFamily: 'Barlow Condensed' }}>Experiencia</h3>
+              <p className="text-zinc-500">Más de 10 años de experiencia en servicio de motocicletas VENTO.</p>
             </div>
             <div className="text-center group">
               <div className="w-16 h-16 bg-[#E31837]/20 rounded-sm flex items-center justify-center mx-auto mb-4 transition-all duration-300 group-hover:bg-[#E31837]/30 group-hover:scale-110">
                 <Cog className="w-8 h-8 text-[#E31837]" />
               </div>
-              <h3 className="text-xl font-bold text-white uppercase mb-2" style={{ fontFamily: 'Barlow Condensed' }}>
-                Refacciones Originales
-              </h3>
-              <p className="text-zinc-500">
-                Utilizamos únicamente refacciones originales y de alta calidad.
-              </p>
+              <h3 className="text-xl font-bold text-white uppercase mb-2" style={{ fontFamily: 'Barlow Condensed' }}>Refacciones Originales</h3>
+              <p className="text-zinc-500">Utilizamos únicamente refacciones originales y de alta calidad.</p>
             </div>
           </div>
         </div>
@@ -434,7 +419,6 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* Search Form */}
           <Card className="bg-zinc-900/50 border-zinc-800 mb-8">
             <CardContent className="p-6">
               <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4">
@@ -455,22 +439,17 @@ export default function LandingPage() {
                   {loading ? (
                     <span className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white" />
                   ) : (
-                    <>
-                      <Search className="w-5 h-5 mr-2" />
-                      Buscar
-                    </>
+                    <><Search className="w-5 h-5 mr-2" />Buscar</>
                   )}
                 </Button>
               </form>
             </CardContent>
           </Card>
 
-          {/* Results */}
           {showTracking && (
             <div className="animate-fade-in">
               {serviceData ? (
                 <Card className="bg-zinc-900/50 border-zinc-800 overflow-hidden" data-testid="tracking-result">
-                  {/* Status Timeline */}
                   <div className="p-6 border-b border-zinc-800">
                     <div className="flex items-center justify-between relative">
                       <div className="absolute top-6 left-0 right-0 h-1 bg-zinc-800" />
@@ -500,7 +479,6 @@ export default function LandingPage() {
                       })}
                     </div>
                   </div>
-
                   <CardContent className="p-6">
                     <div className="grid md:grid-cols-2 gap-6">
                       <div className="space-y-4">
@@ -593,24 +571,14 @@ export default function LandingPage() {
               </p>
             </div>
             <div>
-              <h4 className="text-white font-bold uppercase mb-4" style={{ fontFamily: 'Barlow Condensed' }}>
-                Contacto
-              </h4>
+              <h4 className="text-white font-bold uppercase mb-4" style={{ fontFamily: 'Barlow Condensed' }}>Contacto</h4>
               <div className="space-y-2 text-zinc-500 text-sm">
-                <p className="flex items-center gap-2">
-                  <Phone className="w-4 h-4" />
-                  993 123 4567
-                </p>
-                <p className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />
-                  Villahermosa, Tabasco
-                </p>
+                <p className="flex items-center gap-2"><Phone className="w-4 h-4" />993 123 4567</p>
+                <p className="flex items-center gap-2"><MapPin className="w-4 h-4" />Villahermosa, Tabasco</p>
               </div>
             </div>
             <div>
-              <h4 className="text-white font-bold uppercase mb-4" style={{ fontFamily: 'Barlow Condensed' }}>
-                Horario
-              </h4>
+              <h4 className="text-white font-bold uppercase mb-4" style={{ fontFamily: 'Barlow Condensed' }}>Horario</h4>
               <div className="text-zinc-500 text-sm">
                 <p>Lunes a Viernes: 8:00 - 18:00</p>
                 <p>Sábado: 8:00 - 14:00</p>
@@ -619,12 +587,8 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="pt-8 border-t border-zinc-800 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-zinc-600 text-sm">
-              © 2026 YEPEZ CONTROLS - Todos los derechos reservados
-            </p>
-            <p className="text-zinc-700 text-xs">
-              Proyecto de Titulación UJAT - Ingeniería en Sistemas
-            </p>
+            <p className="text-zinc-600 text-sm">© 2026 YEPEZ CONTROLS - Todos los derechos reservados</p>
+            <p className="text-zinc-700 text-xs">Proyecto de Titulación UJAT - Ingeniería en Sistemas</p>
           </div>
         </div>
       </footer>
