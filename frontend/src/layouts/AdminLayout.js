@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { 
   Bike, LayoutDashboard, Calendar, Wrench, DollarSign, 
-  Package, Users, LogOut, Menu, X, ChevronLeft, UserCheck
+  Package, Users, LogOut, Menu, X, ChevronLeft, UserCheck, FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +16,7 @@ const navItems = [
   { to: "/admin/inventario", icon: Package, label: "Inventario" },
   { to: "/admin/mecanicos", icon: Users, label: "Mecánicos" },
   { to: "/admin/clientes", icon: UserCheck, label: "Clientes" },
+  { to: "/admin/facturas", icon: FileText, label: "Facturas" },
 ];
 
 export default function AdminLayout() {
