@@ -14,6 +14,7 @@ import Finances from "@/pages/admin/Finances";
 import Inventory from "@/pages/admin/Inventory";
 import Mechanics from "@/pages/admin/Mechanics";
 import Clients from "@/pages/admin/Clients";
+import Invoices from "@/pages/admin/Invoices";
 import MechanicDashboard from "@/pages/mechanic/MechanicDashboard";
 import "@/App.css";
 
@@ -69,6 +70,7 @@ function AppRoutes() {
         <Route path="inventario" element={<Inventory />} />
         <Route path="mecanicos" element={<Mechanics />} />
         <Route path="clientes" element={<Clients />} />
+        <Route path="facturas" element={<Invoices />} />
       </Route>
 
       {/* Rutas de Mecánico */}
