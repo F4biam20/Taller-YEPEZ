@@ -653,6 +653,70 @@ async def create_public_appointment(appointment: AppointmentCreate):
     await db.appointments.insert_one(appt_doc)
     return AppointmentResponse(**{k: v for k, v in appt_doc.items() if k != "_id"})
 
+@api_router.get("/public/inventory")
+async def get_public_inventory():
+    """Inventario público visible en la landing page"""
+    items = await db.inventory.find({}, {"_id": 0, "supplier": 0}).to_list(500)
+    return items
+
+@api_router.get("/public/ratings")
+async def get_public_ratings():
+    """Opiniones públicas de clientes"""
+    ratings = await db.ratings.find(
+        {}, {"_id": 0}
+    ).sort("created_at", -1).to_list(20)
+    return ratings
+
+@api_router.post("/public/parts-request")
+async def create_parts_request(request: dict):
+    """Solicitud de refacción desde la landing page"""
+    doc = {
+        "id": str(uuid.uuid4()),
+        "name": request.get("name", ""),
+        "phone": request.get("phone", ""),
+        "part": request.get("part", ""),
+        "notes": request.get("notes", ""),
+        "status": "pendiente",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.parts_requests.insert_one(doc)
+    return {"message": "Solicitud recibida", "id": doc["id"]}
+
+@api_router.post("/ratings")
+async def create_rating(rating: dict, user: dict = Depends(get_current_user)):
+    """Cliente califica un servicio"""
+    if user["role"] != "cliente":
+        raise HTTPException(status_code=403, detail="Solo clientes pueden calificar")
+    
+    # Verificar que el servicio existe y pertenece al cliente
+    service = await db.services.find_one({"id": rating.get("service_id")}, {"_id": 0})
+    if not service:
+        raise HTTPException(status_code=404, detail="Servicio no encontrado")
+
+    # Evitar calificación duplicada
+    existing = await db.ratings.find_one({"service_id": rating.get("service_id"), "client_email": user["email"]})
+    if existing:
+        raise HTTPException(status_code=400, detail="Ya calificaste este servicio")
+
+    doc = {
+        "id": str(uuid.uuid4()),
+        "service_id": rating.get("service_id"),
+        "client_name": user["name"],
+        "client_email": user["email"],
+        "stars": max(1, min(5, int(rating.get("stars", 5)))),
+        "comment": rating.get("comment", ""),
+        "vehicle_plate": service.get("vehicle_plate", ""),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.ratings.insert_one(doc)
+    return {"message": "Calificación guardada", "id": doc["id"]}
+
+@api_router.get("/admin/parts-requests")
+async def get_parts_requests(user: dict = Depends(require_admin)):
+    """Admin ve las solicitudes de refacciones"""
+    requests = await db.parts_requests.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return requests
+
 @api_router.get("/client/appointments", response_model=List[AppointmentResponse])
 async def get_client_appointments(user: dict = Depends(get_current_user)):
     if user["role"] != "cliente":
