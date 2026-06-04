@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import axios from "axios";
 import { 
+  Car, Search, CheckCircle, Clock, Wrench, User,
   Phone, MapPin, Settings, Zap, Shield, Star, ChevronRight,
   Droplets, Cog, Disc, Battery, X, Package, ShoppingBag,
   AlertCircle, ChevronDown, Lock
