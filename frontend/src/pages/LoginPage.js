@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Bike, Eye, EyeOff, Home, LogIn } from "lucide-react";
+import { Eye, EyeOff, Home, LogIn } from "lucide-react";
+
+const motoStyle = { filter: "invert(16%) sepia(94%) saturate(4000%) hue-rotate(340deg) brightness(90%) contrast(110%)" };
 
 export default function LoginPage() {
     const [email, setEmail] = useState("");
@@ -18,18 +20,12 @@ export default function LoginPage() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
-
         try {
             const user = await login(email, password);
             toast.success(`Bienvenido, ${user.name}`);
-
-            if (user.role === "admin") {
-                navigate("/admin");
-            } else if (user.role === "mecanico") {
-                navigate("/mecanico");
-            } else {
-                navigate("/rastreo");
-            }
+            if (user.role === "admin") navigate("/admin");
+            else if (user.role === "mecanico") navigate("/mecanico");
+            else navigate("/cliente");
         } catch (error) {
             toast.error(error.response?.data?.detail || "Error al iniciar sesión");
         } finally {
@@ -39,42 +35,32 @@ export default function LoginPage() {
 
     return (
         <div className="min-h-screen flex relative">
-            <Link
-                to="/"
-                className="fixed top-6 right-6 z-50 inline-flex items-center gap-2 px-4 py-2 bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white text-sm font-bold uppercase tracking-wider transition-colors"
-                data-testid="home-link"
-            >
+            <Link to="/" className="fixed top-6 right-6 z-50 inline-flex items-center gap-2 px-4 py-2 bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white text-sm font-bold uppercase tracking-wider transition-colors" data-testid="home-link">
                 <Home className="w-4 h-4" />
                 Inicio
             </Link>
 
-            {/* Left Panel - Hero Image */}
+            {/* Left Panel */}
             <div className="hidden lg:flex lg:w-[60%] relative overflow-hidden">
-                <img
-                    src="https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=1200&q=80"
-                    alt="Motorcycle"
-                    className="absolute inset-0 w-full h-full object-cover"
-                />
+                <img src="https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=1200&q=80" alt="Motorcycle" className="absolute inset-0 w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-transparent" />
                 <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center p-8">
-                        <span className="text-2xl">🏍️</span>
+                        <img src="/moto-icon.png" alt="moto" className="w-24 h-24 mx-auto mb-6" style={motoStyle} />
                         <h1 className="text-6xl font-bold text-white tracking-tight uppercase" style={{ fontFamily: 'Barlow Condensed' }}>
                             YEPEZ<span className="text-[#E31837]"> CONTROLS</span>
                         </h1>
-                        <p className="text-zinc-400 mt-4 text-lg tracking-wide">
-                            Centro de Servicio Autorizado VENTO
-                        </p>
+                        <p className="text-zinc-400 mt-4 text-lg tracking-wide">Centro de Servicio Autorizado VENTO</p>
                     </div>
                 </div>
             </div>
 
-            {/* Right Panel - Login Form */}
+            {/* Right Panel */}
             <div className="w-full lg:w-[40%] flex items-center justify-center p-8 bg-[#09090b]">
                 <div className="w-full max-w-md space-y-8 animate-fade-in">
                     {/* Mobile Logo */}
                     <div className="lg:hidden text-center mb-8">
-                        <span className="text-2xl">🏍️</span>
+                        <img src="/moto-icon.png" alt="moto" className="w-16 h-16 mx-auto mb-4" style={motoStyle} />
                         <h1 className="text-3xl font-bold text-white tracking-tight uppercase" style={{ fontFamily: 'Barlow Condensed' }}>
                             YEPEZ<span className="text-[#E31837]"> CONTROLS</span>
                         </h1>
@@ -89,52 +75,28 @@ export default function LoginPage() {
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="space-y-2">
-                            <Label htmlFor="email" className="text-zinc-400 text-xs uppercase tracking-widest">
-                                Correo Electrónico
-                            </Label>
-                            <Input
-                                id="email"
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="correo@ejemplo.com"
-                                required
-                                data-testid="login-email-input"
-                                className="bg-zinc-950 border-zinc-800 focus:border-[#E31837] focus:ring-[#E31837] h-12 text-white placeholder:text-zinc-600"
-                            />
+                            <Label htmlFor="email" className="text-zinc-400 text-xs uppercase tracking-widest">Correo Electrónico</Label>
+                            <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                                placeholder="correo@ejemplo.com" required data-testid="login-email-input"
+                                className="bg-zinc-950 border-zinc-800 focus:border-[#E31837] h-12 text-white placeholder:text-zinc-600" />
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="password" className="text-zinc-400 text-xs uppercase tracking-widest">
-                                Contraseña
-                            </Label>
+                            <Label htmlFor="password" className="text-zinc-400 text-xs uppercase tracking-widest">Contraseña</Label>
                             <div className="relative">
-                                <Input
-                                    id="password"
-                                    type={showPassword ? "text" : "password"}
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="••••••••"
-                                    required
+                                <Input id="password" type={showPassword ? "text" : "password"} value={password}
+                                    onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required
                                     data-testid="login-password-input"
-                                    className="bg-zinc-950 border-zinc-800 focus:border-[#E31837] focus:ring-[#E31837] h-12 text-white placeholder:text-zinc-600 pr-10"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
-                                >
+                                    className="bg-zinc-950 border-zinc-800 focus:border-[#E31837] h-12 text-white placeholder:text-zinc-600 pr-10" />
+                                <button type="button" onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300">
                                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                 </button>
                             </div>
                         </div>
 
-                        <Button
-                            type="submit"
-                            disabled={loading}
-                            data-testid="login-submit-btn"
-                            className="w-full h-12 bg-[#E31837] hover:bg-[#C4122C] text-white font-bold uppercase tracking-wider rounded-sm transition-all shadow-[0_0_10px_rgba(227,24,55,0.2)] hover:shadow-[0_0_20px_rgba(227,24,55,0.4)]"
-                        >
+                        <Button type="submit" disabled={loading} data-testid="login-submit-btn"
+                            className="w-full h-12 bg-[#E31837] hover:bg-[#C4122C] text-white font-bold uppercase tracking-wider rounded-sm transition-all">
                             {loading ? (
                                 <span className="flex items-center gap-2">
                                     <span className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></span>
@@ -142,8 +104,7 @@ export default function LoginPage() {
                                 </span>
                             ) : (
                                 <span className="flex items-center gap-2">
-                                    <LogIn className="w-5 h-5" />
-                                    Ingresar
+                                    <LogIn className="w-5 h-5" />Ingresar
                                 </span>
                             )}
                         </Button>
@@ -158,19 +119,12 @@ export default function LoginPage() {
                                 <span className="bg-[#09090b] px-2 text-zinc-600">o</span>
                             </div>
                         </div>
-
                         <p className="text-zinc-500">
                             ¿Eres cliente nuevo?{" "}
-                            <Link
-                                to="/registro"
-                                className="text-[#E31837] hover:text-[#C4122C] font-medium transition-colors"
-                                data-testid="register-link"
-                            >
+                            <Link to="/registro" className="text-[#E31837] hover:text-[#C4122C] font-medium transition-colors" data-testid="register-link">
                                 Regístrate aquí
                             </Link>
                         </p>
-
-
                     </div>
                 </div>
             </div>
