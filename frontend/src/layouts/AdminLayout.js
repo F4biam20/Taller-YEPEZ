@@ -2,8 +2,7 @@ import { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
-import {
-  Bike, LayoutDashboard, Calendar, Wrench, DollarSign,
+import { 
   Package, Users, LogOut, Menu, X, ChevronLeft, UserCheck, FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -63,7 +62,7 @@ export default function AdminLayout() {
       )}>
         <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
           <div className={cn("flex items-center gap-3", !sidebarOpen && "justify-center w-full")}>
-            <span className="text-2xl">🏍️</span>
+            <img src="/moto-icon.png" alt="moto" className="w-8 h-8 flex-shrink-0" style={{ filter: "invert(16%) sepia(94%) saturate(4000%) hue-rotate(340deg) brightness(90%) contrast(110%)" }} />
             {sidebarOpen && (
               <span className="text-xl font-bold text-white uppercase tracking-tight" style={{ fontFamily: 'Barlow Condensed' }}>
                 YEPEZ
@@ -100,7 +99,7 @@ export default function AdminLayout() {
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-zinc-950 border-b border-zinc-800 z-50 flex items-center justify-between px-4">
         <div className="flex items-center gap-3">
-          <span className="text-2xl">🏍️</span>
+          <img src="/moto-icon.png" alt="moto" className="w-8 h-8" style={{ filter: "invert(16%) sepia(94%) saturate(4000%) hue-rotate(340deg) brightness(90%) contrast(110%)" }} />
           <span className="text-xl font-bold text-white uppercase tracking-tight" style={{ fontFamily: 'Barlow Condensed' }}>YEPEZ</span>
         </div>
         <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="text-white p-2" data-testid="mobile-menu-btn">
