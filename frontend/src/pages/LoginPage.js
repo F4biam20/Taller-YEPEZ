@@ -58,7 +58,7 @@ export default function LoginPage() {
                 <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/60 to-transparent" />
                 <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center p-8">
-                        <Bike className="w-24 h-24 text-[#E31837] mx-auto mb-6" strokeWidth={1.5} />
+                        <span className="text-2xl">🏍️</span>
                         <h1 className="text-6xl font-bold text-white tracking-tight uppercase" style={{ fontFamily: 'Barlow Condensed' }}>
                             YEPEZ<span className="text-[#E31837]"> CONTROLS</span>
                         </h1>
@@ -74,7 +74,7 @@ export default function LoginPage() {
                 <div className="w-full max-w-md space-y-8 animate-fade-in">
                     {/* Mobile Logo */}
                     <div className="lg:hidden text-center mb-8">
-                        <Bike className="w-16 h-16 text-[#E31837] mx-auto mb-4" strokeWidth={1.5} />
+                        <span className="text-2xl">🏍️</span>
                         <h1 className="text-3xl font-bold text-white tracking-tight uppercase" style={{ fontFamily: 'Barlow Condensed' }}>
                             YEPEZ<span className="text-[#E31837]"> CONTROLS</span>
                         </h1>
