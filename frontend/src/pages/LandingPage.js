@@ -296,13 +296,11 @@ export default function LandingPage() {
                   <ChevronRight className="w-5 h-5 ml-2" />
                 </Button>
                 <Button
-                  onClick={scrollToTracking}
+                  onClick={() => navigate("/registro")}
                   data-testid="track-btn"
-                  variant="outline"
-                  className="border-zinc-700 text-white hover:bg-zinc-800 font-bold uppercase tracking-wider h-12 px-8"
+                  className="bg-green-600 hover:bg-green-700 text-white font-bold uppercase tracking-wider h-12 px-8"
                 >
-                  <Search className="w-5 h-5 mr-2" />
-                  Rastrear Mi Moto
+                  Comenzar →
                 </Button>
               </div>
             </div>
