@@ -7,8 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import axios from "axios";
-import {
-  Bike, Search, Car, CheckCircle, Clock, Wrench, User,
+import { 
   Phone, MapPin, Settings, Zap, Shield, Star, ChevronRight,
   Droplets, Cog, Disc, Battery, X, Package, ShoppingBag,
   AlertCircle, ChevronDown, Lock
@@ -19,11 +18,11 @@ const API = process.env.REACT_APP_BACKEND_URL + "/api";
 
 // Opiniones de ejemplo (se mezclan con las reales del backend)
 const opinionesEjemplo = [
-  { name: "Carlos M.", stars: 5, comment: "Excelente servicio, mi moto quedó como nueva. Muy profesionales.", date: "Mayo 2026" },
-  { name: "Laura G.", stars: 5, comment: "Rápidos y honestos. Me explicaron todo el proceso. 100% recomendados.", date: "Abril 2026" },
-  { name: "Roberto S.", stars: 4, comment: "Buen trabajo en mi VENTO Bravo. El precio fue justo.", date: "Marzo 2026" },
-  { name: "Ana P.", stars: 5, comment: "Llevé mi moto por un problema eléctrico y lo resolvieron el mismo día.", date: "Febrero 2026" },
-  { name: "Miguel H.", stars: 5, comment: "Refacciones originales y garantía real. No busco otro taller.", date: "Enero 2026" },
+  { name: "Carlos M.",    stars: 5, comment: "Excelente servicio, mi moto quedó como nueva. Muy profesionales.", date: "Mayo 2026" },
+  { name: "Laura G.",     stars: 5, comment: "Rápidos y honestos. Me explicaron todo el proceso. 100% recomendados.", date: "Abril 2026" },
+  { name: "Roberto S.",   stars: 4, comment: "Buen trabajo en mi VENTO Bravo. El precio fue justo.", date: "Marzo 2026" },
+  { name: "Ana P.",       stars: 5, comment: "Llevé mi moto por un problema eléctrico y lo resolvieron el mismo día.", date: "Febrero 2026" },
+  { name: "Miguel H.",    stars: 5, comment: "Refacciones originales y garantía real. No busco otro taller.", date: "Enero 2026" },
 ];
 
 const serviceImages = [
@@ -218,7 +217,7 @@ export default function LandingPage() {
       <header className="fixed top-0 left-0 right-0 h-16 bg-zinc-950/95 backdrop-blur-sm border-b border-zinc-800 z-50">
         <div className="h-full max-w-6xl mx-auto px-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">🏍️</span>
+            <img src="/moto-icon.png" alt="moto" className="w-8 h-8" style={{ filter: "invert(16%) sepia(94%) saturate(4000%) hue-rotate(340deg) brightness(90%) contrast(110%)" }} />
             <span className="text-xl font-bold text-white uppercase tracking-tight" style={{ fontFamily: 'Barlow Condensed' }}>
               YEPEZ<span className="text-[#E31837]"> CONTROLS</span>
             </span>
@@ -275,7 +274,7 @@ export default function LandingPage() {
           <div className="absolute inset-0 bg-gradient-to-r from-[#09090b] via-[#09090b]/90 to-[#09090b]/70" />
           <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] via-transparent to-transparent" />
         </div>
-
+        
         <div className="max-w-6xl mx-auto px-4 py-20 lg:py-32 relative z-10">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="text-center lg:text-left">
@@ -283,11 +282,11 @@ export default function LandingPage() {
                 Centro de Servicio Autorizado VENTO
               </Badge>
               <h1 className="text-5xl lg:text-7xl font-bold text-white uppercase leading-tight" style={{ fontFamily: 'Barlow Condensed' }}>
-                Tu Motocicleta<br />
+                Tu Motocicleta<br/>
                 <span className="text-[#E31837]">En las Mejores Manos</span>
               </h1>
               <p className="text-zinc-400 text-lg mt-6 max-w-lg">
-                Servicio profesional para tu motocicleta VENTO. Técnicos certificados,
+                Servicio profesional para tu motocicleta VENTO. Técnicos certificados, 
                 refacciones originales y garantía en todos nuestros trabajos.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 mt-8 justify-center lg:justify-start">
@@ -311,7 +310,7 @@ export default function LandingPage() {
             <div className="hidden lg:flex justify-center">
               <div className="relative group">
                 <div className="w-80 h-80 bg-[#E31837]/20 rounded-full blur-3xl absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 group-hover:bg-[#E31837]/30 transition-all duration-500" />
-                <Bike className="w-64 h-64 text-[#E31837] relative z-10 transition-transform duration-500 group-hover:scale-110" strokeWidth={1} />
+                <img src="/moto-icon.png" alt="moto" className="w-64 h-64 relative z-10 transition-transform duration-500 group-hover:scale-110" style={{ filter: "invert(16%) sepia(94%) saturate(4000%) hue-rotate(340deg) brightness(90%) contrast(110%)" }} />
               </div>
             </div>
           </div>
@@ -344,14 +343,14 @@ export default function LandingPage() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {servicios.map((servicio, idx) => (
-              <Card
-                key={idx}
+              <Card 
+                key={idx} 
                 className="bg-zinc-900/50 border-zinc-800 hover:border-[#E31837]/50 transition-all duration-500 group cursor-pointer overflow-hidden relative"
                 onMouseEnter={() => setHoveredService(idx)}
                 onMouseLeave={() => setHoveredService(null)}
                 data-testid={`service-card-${idx}`}
               >
-                <div
+                <div 
                   className={cn(
                     "absolute inset-0 transition-opacity duration-500 z-0",
                     hoveredService === idx ? "opacity-20" : "opacity-0"
@@ -366,7 +365,7 @@ export default function LandingPage() {
                   "absolute inset-0 bg-gradient-to-t from-zinc-900 to-transparent transition-opacity duration-500",
                   hoveredService === idx ? "opacity-90" : "opacity-0"
                 )} />
-
+                
                 <CardContent className="p-6 relative z-10">
                   <div className={cn(
                     "w-14 h-14 rounded-sm flex items-center justify-center mb-4 transition-all duration-300",
@@ -394,7 +393,7 @@ export default function LandingPage() {
 
           <div className="mt-12 text-center">
             <Card className="bg-[#E31837]/10 border-[#E31837]/30 max-w-2xl mx-auto relative overflow-hidden">
-              <div
+              <div 
                 className="absolute inset-0 opacity-10"
                 style={{
                   backgroundImage: `url(${serviceImages[2]})`,
@@ -574,7 +573,7 @@ export default function LandingPage() {
                 <img src="https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=800&q=80" alt="Taller" className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-zinc-900/70 flex items-center justify-center p-4">
                   <p className="text-white text-center text-sm leading-relaxed">
-                    Nos hemos especializado durante más de <strong>10 años</strong> en el servicio exclusivo de motocicletas <strong>VENTO</strong>.
+                    Nos hemos especializado durante más de <strong>10 años</strong> en el servicio exclusivo de motocicletas <strong>VENTO</strong>. 
                     Nuestros técnicos están certificados directamente por la marca y se actualizan constantemente.
                   </p>
                 </div>
@@ -593,7 +592,7 @@ export default function LandingPage() {
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-white font-medium text-sm">{r.client_name || "Cliente verificado"}</span>
                         <div className="flex">
-                          {[1, 2, 3, 4, 5].map(s => (
+                          {[1,2,3,4,5].map(s => (
                             <Star key={s} className={cn("w-3 h-3", s <= r.stars ? "text-yellow-400 fill-yellow-400" : "text-zinc-600")} />
                           ))}
                         </div>
@@ -610,7 +609,7 @@ export default function LandingPage() {
                           <span className="text-zinc-600 text-xs ml-2">{op.date}</span>
                         </div>
                         <div className="flex">
-                          {[1, 2, 3, 4, 5].map(s => (
+                          {[1,2,3,4,5].map(s => (
                             <Star key={s} className={cn("w-3 h-3", s <= op.stars ? "text-yellow-400 fill-yellow-400" : "text-zinc-600")} />
                           ))}
                         </div>
@@ -757,11 +756,11 @@ export default function LandingPage() {
                 (categoryFilter === "Todos" || i.category === categoryFilter) &&
                 i.name.toLowerCase().includes(searchPart.toLowerCase())
               ).length === 0 && !loadingModal && (
-                  <div className="text-center py-8">
-                    <Package className="w-12 h-12 text-zinc-700 mx-auto mb-3" />
-                    <p className="text-zinc-500">No se encontraron refacciones</p>
-                  </div>
-                )}
+                <div className="text-center py-8">
+                  <Package className="w-12 h-12 text-zinc-700 mx-auto mb-3" />
+                  <p className="text-zinc-500">No se encontraron refacciones</p>
+                </div>
+              )}
 
               <div className="bg-zinc-800/30 rounded-sm p-4 text-center">
                 <p className="text-zinc-400 text-sm">¿No encuentras la pieza que necesitas?</p>
@@ -781,7 +780,7 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-3 gap-8 mb-8">
             <div>
               <div className="flex items-center gap-3 mb-4">
-                <Bike className="w-8 h-8 text-[#E31837]" />
+                <img src="/moto-icon.png" alt="moto" className="w-8 h-8" style={{ filter: "invert(16%) sepia(94%) saturate(4000%) hue-rotate(340deg) brightness(90%) contrast(110%)" }} />
                 <span className="text-xl font-bold text-white uppercase" style={{ fontFamily: 'Barlow Condensed' }}>
                   YEPEZ CONTROLS
                 </span>
