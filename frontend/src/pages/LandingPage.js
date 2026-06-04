@@ -171,7 +171,7 @@ export default function LandingPage() {
     }
   };
 
-  
+  const handleSearch = async (e) => {
     e.preventDefault();
     if (!plate.trim()) {
       toast.error("Ingresa la placa de tu vehículo");
