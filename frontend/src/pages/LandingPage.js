@@ -11,7 +11,7 @@ import {
   Bike, Search, Car, CheckCircle, Clock, Wrench, User, 
   Phone, MapPin, Settings, Zap, Shield, Star, ChevronRight,
   Droplets, Cog, Disc, Battery, X, Package, ShoppingBag,
-  AlertCircle, ChevronDown
+  AlertCircle, ChevronDown, Lock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -111,7 +111,10 @@ export default function LandingPage() {
   const navigate = useNavigate();
 
   // Modales
-  const [modal, setModal] = useState(null); // "garantia" | "experiencia" | "refacciones"
+  const [modal, setModal] = useState(null);
+  const [showAccessModal, setShowAccessModal] = useState(false);
+  const [accessPin, setAccessPin] = useState("");
+  const [accessError, setAccessError] = useState(false); // "garantia" | "experiencia" | "refacciones"
   const [inventory, setInventory] = useState([]);
   const [ratings, setRatings] = useState([]);
   const [loadingModal, setLoadingModal] = useState(false);
@@ -235,16 +238,17 @@ export default function LandingPage() {
           {/* ===== BOTONES HEADER ===== */}
           <div className="flex items-center gap-2">
             <Button
-              onClick={() => navigate("/registro")}
+              onClick={() => navigate("/login")}
               className="bg-green-600 hover:bg-green-700 text-white font-bold uppercase tracking-wider text-sm"
             >
-              Cliente Nuevo
+              Iniciar Sesión
             </Button>
             <Button
-              onClick={() => navigate("/login")}
+              onClick={() => setShowAccessModal(true)}
               data-testid="access-btn"
-              className="bg-[#E31837] hover:bg-[#C4122C] text-white font-bold uppercase tracking-wider text-sm"
+              className="bg-[#E31837] hover:bg-[#C4122C] text-white font-bold uppercase tracking-wider text-sm flex items-center gap-2"
             >
+              <Lock className="w-4 h-4" />
               Acceso Personal
             </Button>
           </div>
@@ -808,6 +812,78 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+      {/* ===== MODAL ACCESO PERSONAL ===== */}
+      {showAccessModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => { setShowAccessModal(false); setAccessPin(""); setAccessError(false); }}>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-sm w-full max-w-sm"
+            onClick={e => e.stopPropagation()}>
+            <div className="bg-[#E31837] p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Lock className="w-6 h-6 text-white" />
+                <h2 className="text-xl font-bold text-white uppercase" style={{ fontFamily: 'Barlow Condensed' }}>
+                  Acceso Personal
+                </h2>
+              </div>
+              <button onClick={() => { setShowAccessModal(false); setAccessPin(""); setAccessError(false); }}
+                className="text-white hover:text-red-200 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-zinc-400 text-sm text-center">
+                Área restringida para personal del taller.<br />Ingresa la contraseña de acceso.
+              </p>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                <input
+                  type="password"
+                  value={accessPin}
+                  onChange={e => { setAccessPin(e.target.value); setAccessError(false); }}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      if (accessPin === "UJAT-VENT-20206@") {
+                        setShowAccessModal(false);
+                        setAccessPin("");
+                        setAccessError(false);
+                        navigate("/login");
+                      } else {
+                        setAccessError(true);
+                      }
+                    }
+                  }}
+                  placeholder="Contraseña de acceso"
+                  className={cn(
+                    "w-full bg-zinc-950 border text-white pl-10 h-11 rounded-md px-3 focus:outline-none",
+                    accessError ? "border-red-500 focus:border-red-500" : "border-zinc-700 focus:border-[#E31837]"
+                  )}
+                />
+              </div>
+              {accessError && (
+                <p className="text-red-400 text-xs text-center flex items-center justify-center gap-1">
+                  <AlertCircle className="w-3 h-3" /> Contraseña incorrecta
+                </p>
+              )}
+              <Button
+                onClick={() => {
+                  if (accessPin === "UJAT-VENT-20206@") {
+                    setShowAccessModal(false);
+                    setAccessPin("");
+                    setAccessError(false);
+                    navigate("/login");
+                  } else {
+                    setAccessError(true);
+                  }
+                }}
+                className="w-full bg-[#E31837] hover:bg-[#C4122C] text-white font-bold uppercase h-11"
+              >
+                <Lock className="w-4 h-4 mr-2" /> Ingresar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
