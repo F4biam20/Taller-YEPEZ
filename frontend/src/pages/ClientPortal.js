@@ -10,11 +10,13 @@ import { toast } from "sonner";
 import axios from "axios";
 import jsPDF from "jspdf";
 import {
-  Bike, Car, Wrench, Search, CheckCircle, Clock, User,
+  Car, Wrench, Search, CheckCircle, Clock, User,
   LogOut, Plus, Phone, Calendar, RefreshCw, FileText,
   Download, Star, Send
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const motoStyle = { filter: "invert(16%) sepia(94%) saturate(4000%) hue-rotate(340deg) brightness(90%) contrast(110%)" };
 
 const statusSteps = [
   { key: "recibido",      label: "Recibido",      icon: Car,         step: 1 },
@@ -40,7 +42,6 @@ export default function ClientPortal() {
   const [loadingData, setLoadingData]     = useState(true);
   const [activeTab, setActiveTab]         = useState("servicio");
 
-  // Cita form
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [apptForm, setApptForm] = useState({
@@ -55,9 +56,8 @@ export default function ClientPortal() {
     scheduled_time: "",
   });
 
-  // Calificación
-  const [rating, setRating]           = useState({});   // { serviceId: { stars, comment, sent } }
-  const [hoverStar, setHoverStar]     = useState({});
+  const [rating, setRating]               = useState({});
+  const [hoverStar, setHoverStar]         = useState({});
   const [sendingRating, setSendingRating] = useState(null);
 
   useEffect(() => {
@@ -87,7 +87,6 @@ export default function ClientPortal() {
   };
 
   const handleLogout = () => { logout(); navigate("/"); };
-
   const handleApptChange = (e) => setApptForm({ ...apptForm, [e.target.name]: e.target.value });
 
   const handleApptSubmit = async (e) => {
@@ -121,11 +120,8 @@ export default function ClientPortal() {
     }
   };
 
-  // Generar PDF de factura
   const downloadPDF = (svc) => {
     const doc = new jsPDF();
-
-    // Header rojo
     doc.setFillColor(227, 24, 55);
     doc.rect(0, 0, 210, 35, "F");
     doc.setTextColor(255, 255, 255);
@@ -137,8 +133,6 @@ export default function ClientPortal() {
     doc.text("Centro de Servicio Autorizado VENTO", 14, 27);
     doc.text(`Folio: YC-${svc.id.slice(-6).toUpperCase()}`, 140, 18);
     doc.text(`Fecha: ${new Date(svc.updated_at).toLocaleDateString("es-MX")}`, 140, 27);
-
-    // Datos del cliente
     doc.setTextColor(30, 30, 30);
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
@@ -150,20 +144,15 @@ export default function ClientPortal() {
     doc.text(`Nombre: ${svc.client_name}`, 14, 60);
     doc.text(`Vehículo: ${svc.vehicle_plate} — ${svc.vehicle_model}`, 14, 68);
     doc.text(`Mecánico: ${svc.mechanic_name || "No asignado"}`, 14, 76);
-
-    // Descripción del servicio
     doc.setFont("helvetica", "bold");
     doc.setFontSize(12);
     doc.text("DESCRIPCIÓN DEL SERVICIO", 14, 92);
     doc.line(14, 94, 196, 94);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-
     const diagLines = doc.splitTextToSize(svc.diagnosis || "Servicio general", 182);
     doc.text(diagLines, 14, 102);
     let yPos = 102 + diagLines.length * 6 + 6;
-
-    // Notas del mecánico
     if (svc.mechanic_notes) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
@@ -177,8 +166,6 @@ export default function ClientPortal() {
       doc.text(notasLines, 14, yPos);
       yPos += notasLines.length * 5 + 10;
     }
-
-    // Total
     doc.setTextColor(30, 30, 30);
     doc.setFillColor(245, 245, 245);
     doc.rect(110, yPos, 86, 25, "F");
@@ -188,8 +175,6 @@ export default function ClientPortal() {
     doc.setFontSize(18);
     doc.setTextColor(227, 24, 55);
     doc.text(`$${(svc.estimated_cost || 0).toLocaleString("es-MX")} MXN`, 114, yPos + 22);
-
-    // Footer
     doc.setFillColor(227, 24, 55);
     doc.rect(0, 280, 210, 17, "F");
     doc.setTextColor(255, 255, 255);
@@ -197,26 +182,19 @@ export default function ClientPortal() {
     doc.setFont("helvetica", "normal");
     doc.text("Villahermosa, Tabasco | Proyecto de Titulación UJAT — Ingeniería en Sistemas", 14, 290);
     doc.text("© 2026 YEPEZ CONTROLS — Todos los derechos reservados", 14, 296);
-
     doc.save(`Factura_${svc.vehicle_plate}_YC${svc.id.slice(-6).toUpperCase()}.pdf`);
     toast.success("📄 PDF descargado correctamente");
   };
 
-  // Enviar calificación
   const submitRating = async (svcId) => {
     const r = rating[svcId];
     if (!r?.stars) { toast.error("Selecciona una calificación de 1 a 5 estrellas"); return; }
     setSendingRating(svcId);
     try {
-      await axios.post(`${API}/ratings`, {
-        service_id: svcId,
-        stars: r.stars,
-        comment: r.comment || ""
-      }, getAuthHeaders());
+      await axios.post(`${API}/ratings`, { service_id: svcId, stars: r.stars, comment: r.comment || "" }, getAuthHeaders());
       setRating(prev => ({ ...prev, [svcId]: { ...prev[svcId], sent: true } }));
       toast.success("⭐ ¡Gracias por tu calificación!");
-    } catch (err) {
-      // Si el endpoint no existe aún, simular éxito
+    } catch {
       setRating(prev => ({ ...prev, [svcId]: { ...prev[svcId], sent: true } }));
       toast.success("⭐ ¡Gracias por tu calificación!");
     } finally {
@@ -225,7 +203,6 @@ export default function ClientPortal() {
   };
 
   const getCurrentStep = (service) => service?.current_step || 1;
-
   const facturas = history.filter(s => s.status === "listo");
 
   if (loadingData) return (
@@ -240,7 +217,7 @@ export default function ClientPortal() {
       <header className="fixed top-0 left-0 right-0 h-16 bg-zinc-950/95 backdrop-blur-sm border-b border-zinc-800 z-50">
         <div className="h-full max-w-5xl mx-auto px-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
-            <Bike className="w-7 h-7 text-[#E31837]" />
+            <img src="/moto-icon.png" alt="moto" className="w-7 h-7" style={motoStyle} />
             <span className="text-lg font-bold text-white uppercase tracking-tight">
               YEPEZ<span className="text-[#E31837]"> CONTROLS</span>
             </span>
@@ -258,7 +235,6 @@ export default function ClientPortal() {
       </header>
 
       <div className="pt-16 max-w-5xl mx-auto px-4 py-8">
-        {/* Welcome */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-white uppercase">
             Hola, <span className="text-[#E31837]">{user?.name?.split(" ")[0]}</span> 👋
@@ -289,7 +265,7 @@ export default function ClientPortal() {
           ))}
         </div>
 
-        {/* ===== MI MOTO ===== */}
+        {/* MI MOTO */}
         {activeTab === "servicio" && (
           <div>
             {activeService ? (
@@ -302,21 +278,15 @@ export default function ClientPortal() {
                         <p className="text-zinc-400 text-sm">{activeService.vehicle_model}</p>
                       </div>
                       <Badge className={cn("uppercase text-xs font-bold px-3 py-1",
-                        activeService.status === "listo"
-                          ? "bg-green-500/20 text-green-400 border-green-500/30"
-                          : "bg-[#E31837]/20 text-[#E31837] border-[#E31837]/30"
-                      )}>
-                        {activeService.status_label}
-                      </Badge>
+                        activeService.status === "listo" ? "bg-green-500/20 text-green-400 border-green-500/30" : "bg-[#E31837]/20 text-[#E31837] border-[#E31837]/30"
+                      )}>{activeService.status_label}</Badge>
                     </div>
-
-                    {/* Steps */}
                     <div className="flex items-center justify-between relative mb-8">
                       <div className="absolute top-6 left-0 right-0 h-1 bg-zinc-800" />
                       <div className="absolute top-6 left-0 h-1 bg-[#E31837] transition-all duration-700"
                         style={{ width: `${((getCurrentStep(activeService) - 1) / 3) * 100}%` }} />
                       {statusSteps.map((step) => {
-                        const done    = getCurrentStep(activeService) >= step.step;
+                        const done = getCurrentStep(activeService) >= step.step;
                         const current = getCurrentStep(activeService) === step.step;
                         return (
                           <div key={step.key} className="flex flex-col items-center relative z-10">
@@ -332,18 +302,12 @@ export default function ClientPortal() {
                         );
                       })}
                     </div>
-
                     <div className="flex items-center gap-4">
-                      <div className="flex-1">
-                        <Progress value={activeService.progress} className="h-3 bg-zinc-700" />
-                      </div>
-                      <span className="text-2xl font-bold text-[#E31837] min-w-[60px] text-right">
-                        {activeService.progress}%
-                      </span>
+                      <div className="flex-1"><Progress value={activeService.progress} className="h-3 bg-zinc-700" /></div>
+                      <span className="text-2xl font-bold text-[#E31837] min-w-[60px] text-right">{activeService.progress}%</span>
                     </div>
                   </CardContent>
                 </Card>
-
                 <div className="grid sm:grid-cols-2 gap-4">
                   {activeService.mechanic_name && (
                     <Card className="bg-zinc-900/50 border-zinc-800">
@@ -388,7 +352,6 @@ export default function ClientPortal() {
                     </Card>
                   )}
                 </div>
-
                 <button onClick={fetchAll} className="flex items-center gap-2 text-zinc-500 hover:text-white text-sm transition-colors">
                   <RefreshCw className="w-4 h-4" />Actualizar estado
                 </button>
@@ -409,7 +372,7 @@ export default function ClientPortal() {
           </div>
         )}
 
-        {/* ===== CITAS ===== */}
+        {/* CITAS */}
         {activeTab === "citas" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -419,7 +382,6 @@ export default function ClientPortal() {
                 <Plus className="w-4 h-4 mr-1" />Nueva cita
               </Button>
             </div>
-
             {showForm && (
               <Card className="bg-zinc-900/50 border-green-500/30">
                 <CardContent className="p-6">
@@ -480,8 +442,7 @@ export default function ClientPortal() {
                     <div className="sm:col-span-2">
                       <label className="text-zinc-400 text-xs uppercase mb-1 block">Descripción del problema</label>
                       <textarea name="description" value={apptForm.description} onChange={handleApptChange}
-                        placeholder="Describe brevemente el problema..."
-                        rows={3}
+                        placeholder="Describe brevemente el problema..." rows={3}
                         className="w-full bg-zinc-950 border border-zinc-700 text-white rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:border-green-500" />
                     </div>
                     <div className="sm:col-span-2 flex gap-3">
@@ -498,7 +459,6 @@ export default function ClientPortal() {
                 </CardContent>
               </Card>
             )}
-
             {appointments.filter(a => a.status === "pendiente" || a.status === "confirmada").length === 0 ? (
               <Card className="bg-zinc-900/50 border-zinc-800">
                 <CardContent className="p-10 text-center">
@@ -538,7 +498,7 @@ export default function ClientPortal() {
           </div>
         )}
 
-        {/* ===== HISTORIAL ===== */}
+        {/* HISTORIAL */}
         {activeTab === "historial" && (
           <div className="space-y-4">
             <h2 className="text-lg font-bold text-white uppercase">Historial de Servicios</h2>
@@ -558,9 +518,7 @@ export default function ClientPortal() {
                         <div className="flex items-center gap-3 mb-1">
                           <span className="text-white font-bold uppercase">{svc.vehicle_plate}</span>
                           <Badge className={cn("text-xs uppercase border",
-                            svc.status === "listo"
-                              ? "bg-green-500/20 text-green-400 border-green-500/30"
-                              : "bg-[#E31837]/20 text-[#E31837] border-[#E31837]/30"
+                            svc.status === "listo" ? "bg-green-500/20 text-green-400 border-green-500/30" : "bg-[#E31837]/20 text-[#E31837] border-[#E31837]/30"
                           )}>{svc.status_label}</Badge>
                         </div>
                         <p className="text-zinc-400 text-sm">{svc.vehicle_model}</p>
@@ -570,9 +528,7 @@ export default function ClientPortal() {
                         </p>
                       </div>
                       <div className="text-right">
-                        {svc.estimated_cost > 0 && (
-                          <p className="text-white font-bold">${svc.estimated_cost.toLocaleString()} MXN</p>
-                        )}
+                        {svc.estimated_cost > 0 && <p className="text-white font-bold">${svc.estimated_cost.toLocaleString()} MXN</p>}
                         <div className="flex items-center gap-2 mt-1 justify-end">
                           <Progress value={svc.progress} className="h-1.5 bg-zinc-700 w-20" />
                           <span className="text-zinc-500 text-xs">{svc.progress}%</span>
@@ -586,12 +542,11 @@ export default function ClientPortal() {
           </div>
         )}
 
-        {/* ===== FACTURAS ===== */}
+        {/* FACTURAS */}
         {activeTab === "facturas" && (
           <div className="space-y-4">
             <h2 className="text-lg font-bold text-white uppercase">Mis Facturas</h2>
             <p className="text-zinc-500 text-sm">Descarga tus facturas y califica el servicio recibido</p>
-
             {facturas.length === 0 ? (
               <Card className="bg-zinc-900/50 border-zinc-800">
                 <CardContent className="p-10 text-center">
@@ -606,16 +561,11 @@ export default function ClientPortal() {
                 return (
                   <Card key={svc.id} className="bg-zinc-900/50 border-zinc-800">
                     <CardContent className="p-5 space-y-4">
-                      {/* Info servicio */}
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <div className="flex items-center gap-3 mb-1">
-                            <span className="text-white font-bold uppercase text-xl" style={{ fontFamily: 'Barlow Condensed' }}>
-                              {svc.vehicle_plate}
-                            </span>
-                            <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs uppercase border">
-                              Completado
-                            </Badge>
+                            <span className="text-white font-bold uppercase text-xl" style={{ fontFamily: 'Barlow Condensed' }}>{svc.vehicle_plate}</span>
+                            <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs uppercase border">Completado</Badge>
                           </div>
                           <p className="text-zinc-400 text-sm">{svc.vehicle_model}</p>
                           {svc.diagnosis && <p className="text-zinc-500 text-xs mt-1">{svc.diagnosis}</p>}
@@ -624,17 +574,13 @@ export default function ClientPortal() {
                           </p>
                         </div>
                         <div className="text-right">
-                          {svc.estimated_cost > 0 && (
-                            <p className="text-white font-bold text-lg">${svc.estimated_cost.toLocaleString()} MXN</p>
-                          )}
+                          {svc.estimated_cost > 0 && <p className="text-white font-bold text-lg">${svc.estimated_cost.toLocaleString()} MXN</p>}
                           <Button onClick={() => downloadPDF(svc)} size="sm"
                             className="bg-[#E31837] hover:bg-[#C4122C] text-white font-bold uppercase text-xs h-8 mt-2">
                             <Download className="w-3 h-3 mr-1" />Descargar PDF
                           </Button>
                         </div>
                       </div>
-
-                      {/* Calificación */}
                       <div className="border-t border-zinc-800 pt-4">
                         {r.sent ? (
                           <div className="flex items-center gap-2 text-green-400 text-sm">
@@ -649,7 +595,6 @@ export default function ClientPortal() {
                         ) : (
                           <div className="space-y-3">
                             <p className="text-zinc-400 text-xs uppercase tracking-wider">¿Cómo calificarías este servicio?</p>
-                            {/* Estrellas */}
                             <div className="flex gap-1">
                               {[1,2,3,4,5].map(s => (
                                 <button key={s}
@@ -658,26 +603,16 @@ export default function ClientPortal() {
                                   onMouseLeave={() => setHoverStar(prev => ({ ...prev, [svc.id]: 0 }))}
                                   className="transition-transform hover:scale-110">
                                   <Star className={cn("w-7 h-7 transition-colors",
-                                    s <= (hoverStar[svc.id] || r.stars || 0)
-                                      ? "text-yellow-400 fill-yellow-400"
-                                      : "text-zinc-600"
+                                    s <= (hoverStar[svc.id] || r.stars || 0) ? "text-yellow-400 fill-yellow-400" : "text-zinc-600"
                                   )} />
                                 </button>
                               ))}
-                              {r.stars && (
-                                <span className="text-zinc-400 text-sm ml-2 self-center">
-                                  {["", "Muy malo", "Malo", "Regular", "Bueno", "Excelente"][r.stars]}
-                                </span>
-                              )}
+                              {r.stars && <span className="text-zinc-400 text-sm ml-2 self-center">{["","Muy malo","Malo","Regular","Bueno","Excelente"][r.stars]}</span>}
                             </div>
-                            {/* Comentario */}
-                            <textarea
-                              value={r.comment || ""}
+                            <textarea value={r.comment || ""}
                               onChange={(e) => setRating(prev => ({ ...prev, [svc.id]: { ...prev[svc.id], comment: e.target.value } }))}
-                              placeholder="Cuéntanos tu experiencia (opcional)..."
-                              rows={2}
-                              className="w-full bg-zinc-950 border border-zinc-700 text-white rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:border-yellow-500"
-                            />
+                              placeholder="Cuéntanos tu experiencia (opcional)..." rows={2}
+                              className="w-full bg-zinc-950 border border-zinc-700 text-white rounded-md px-3 py-2 text-sm resize-none focus:outline-none focus:border-yellow-500" />
                             <Button onClick={() => submitRating(svc.id)} disabled={sendingRating === svc.id || !r.stars}
                               size="sm" className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold uppercase text-xs h-8">
                               {sendingRating === svc.id
