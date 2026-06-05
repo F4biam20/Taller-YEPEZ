@@ -3,6 +3,7 @@ import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { 
+  LayoutDashboard, Calendar, Wrench, DollarSign,
   Package, Users, LogOut, Menu, X, ChevronLeft, UserCheck, FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
